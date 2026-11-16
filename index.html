@@ -170,7 +170,7 @@ textarea{min-height:64px;resize:vertical}
       <div><label class="f">Tanggal survei</label><input type="date" data-u="tgl"></div>
       <div><label class="f">Nama pemeriksa (perangkat ini)</label><input type="text" data-u="surveyor" placeholder="nama Anda — otomatis masuk ke tiap titik"></div>
       <div><label class="f">Kode perangkat (masuk ke ID titik)</label><input type="text" id="devCode" maxlength="6" style="text-transform:uppercase"></div>
-      <div><label class="f">Tim / aspek yang ditangani perangkat ini</label><input type="text" data-u="tim" placeholder="mis. Tim Struktur — Tahap 2 Gedung Utama"></div>
+      <div><label class="f">Tim / aspek yang ditangani perangkat ini</label><input type="text" data-u="tim" placeholder="mis. Tim Struktur — Gedung Utama"><span class="note">Atur juga “Tampilan ahli” di tab Pemeriksaan agar hanya butir disiplin Anda yang tampil.</span></div>
       <div><label class="f">Cuaca saat survei</label><input type="text" data-u="cuaca"></div>
       <div><label class="f">Pendamping dari pemilik</label><input type="text" data-u="pendamping"></div>
     </div>
@@ -191,6 +191,7 @@ textarea{min-height:64px;resize:vertical}
 <section class="tab" id="tab-simak">
   <div class="card">
     <h2>Pemeriksaan Kondisi Bangunan — Lampiran 2 <span class="pill" id="l2bld"></span></h2>
+    <div class="btns" style="margin:0 0 8px"><label class="note" style="margin:0">Tampilan ahli:</label><select id="selView" style="width:auto;padding:6px 8px"><option value="ALL">Semua butir (koordinator)</option><option value="STR">Ahli Struktur</option><option value="ARS">Ahli Arsitektur</option><option value="MEP">Ahli MEP</option><option value="AKS">Aksesibilitas & kemudahan</option><option value="LNG">Tata bangunan & kawasan</option></select><span class="note" id="viewNote"></span></div>
     <div class="stages" id="stages"></div>
     <div class="pbar"><div id="pfill"></div></div>
     <div class="note" id="stageDesc"></div>
@@ -208,7 +209,7 @@ textarea{min-height:64px;resize:vertical}
       <button class="btn sec sm" id="btnZin">+</button>
       <button class="btn sec sm" id="btnZout">−</button>
       <label style="font-size:12.5px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="chkHot" checked> label ruang</label>
-      <select id="selFilter"><option value="all">Semua titik</option><option value="temuan">Hanya temuan (kondisi ≠ baik)</option><option value="T1">Tahap 1 Tata bangunan</option><option value="T2">Tahap 2 Keselamatan</option><option value="T3">Tahap 3 Kesehatan</option><option value="T4">Tahap 4 Kenyamanan</option><option value="T5">Tahap 5 Kemudahan</option><option value="item">Butir terpilih</option></select>
+      <select id="selFilter"><option value="all">Semua titik</option><option value="temuan">Hanya temuan (kondisi ≠ baik)</option><option value="T1">Tahap 1 Tata bangunan</option><option value="T2">Tahap 2 Keselamatan</option><option value="T3">Tahap 3 Kesehatan</option><option value="T4">Tahap 4 Kenyamanan</option><option value="T5">Tahap 5 Kemudahan</option><option value="item">Butir terpilih</option><option value="view">Disiplin tampilan ahli</option></select>
       <span style="flex:1"></span>
       <button class="btn sm" id="btnNewNoMap">+ Titik tanpa denah</button>
     </div>
@@ -564,12 +565,14 @@ function renderDok(){ const d=S.dok; const h=[]; DOK.forEach(([g,items],gi)=>{ h
 /* ====== PEMERIKSAAN BERTAHAP (LAMPIRAN 2) ====== */
 const SESL=["Sesuai","Tidak sesuai","N/A"], ANDL=["Andal","Kurang andal","Tidak andal","N/A"];
 function l2Obj(){ S.l2[S.bld]=S.l2[S.bld]||{}; return S.l2[S.bld]; }
+S.view=S.view||"ALL";
+const itemVisible=it=>S.view==="ALL"||it.d===S.view||it.c.endsWith(".X");
 function itemDone(v,c){ return (v&&(v.a||v.s||v.v||v.k))||(c&&ptsObj().some(p=>p.item===c)); }
-function stageProg(st){ const d=l2Obj(); let n=0,f=0; st.groups.forEach(g=>g.items.forEach(it=>{n++; if(itemDone(d[it.c],it.c)) f++;})); return [f,n]; }
-function renderStages(){ $("#l2bld").textContent=bld().name; $("#stages").innerHTML=STAGES.map(st=>{const [f,n]=stageProg(st); return `<button data-s="${st.id}" class="${S.stage===st.id?"on":""}">${st.short}<small>${f}/${n}</small></button>`;}).join(""); $$("#stages button").forEach(b=>b.onclick=()=>{S.stage=b.dataset.s; save(); renderL2();}); const st=STAGES.find(x=>x.id===S.stage); const [f,n]=stageProg(st); $("#pfill").style.width=(n?f/n*100:0)+"%"; $("#stageDesc").innerHTML=`<b>${st.name}</b> — ${st.desc}. Selesai ${f}/${n} butir.`; }
+function stageProg(st){ const d=l2Obj(); let n=0,f=0; st.groups.forEach(g=>g.items.filter(itemVisible).filter(it=>!it.c.endsWith(".X")||S.view==="ALL").forEach(it=>{n++; if(itemDone(d[it.c],it.c)) f++;})); return [f,n]; }
+function renderStages(){ $("#l2bld").textContent=bld().name; $("#selView").value=S.view; $("#viewNote").textContent=S.view==="ALL"?"":"hanya butir "+DIS[S.view].n+" (+ butir Lain-lain)"; if(!stageProg(STAGES.find(x=>x.id===S.stage))[1]){ const first=STAGES.find(st=>stageProg(st)[1]); if(first) S.stage=first.id; } $("#stages").innerHTML=STAGES.filter(st=>stageProg(st)[1]).map(st=>{const [f,n]=stageProg(st); return `<button data-s="${st.id}" class="${S.stage===st.id?"on":""}">${st.short}<small>${f}/${n}</small></button>`;}).join(""); $$("#stages button").forEach(b=>b.onclick=()=>{S.stage=b.dataset.s; save(); renderL2();}); const st=STAGES.find(x=>x.id===S.stage); const [f,n]=stageProg(st); $("#pfill").style.width=(n?f/n*100:0)+"%"; $("#stageDesc").innerHTML=`<b>${st.name}</b> — ${st.desc}. Selesai ${f}/${n} butir.`; }
 function logSummary(key){ const rows=ptsObj().filter(p=>L2_BY[p.item]&&L2_BY[p.item].pm==="ENV"&&p.v[key]!==""&&p.v[key]!=null&&!isNaN(+p.v[key])).map(p=>+p.v[key]); if(!rows.length) return ""; return `${Math.min(...rows)}–${Math.max(...rows)} (n=${rows.length}, rata ${(rows.reduce((a,b)=>a+b,0)/rows.length).toFixed(1)})`; }
 function renderL2(){ renderStages(); const st=STAGES.find(x=>x.id===S.stage); const d=l2Obj();
- $("#l2list").innerHTML=st.groups.map(g=>`<div class="card"><h3 style="margin-top:0">${g.name}</h3>${g.items.map(it=>{ const v=d[it.c]||{}; const pts=ptsObj().filter(p=>p.item===it.c); const npt=pts.length, ntm=pts.filter(isTemuan).length; const logv=it.log?logSummary(it.log):""; return `<div class="l2it ${itemDone(v,it.c)?"done":""}" data-c="${it.c}">
+ $("#l2list").innerHTML=st.groups.map(g=>({g,items:g.items.filter(itemVisible)})).filter(x=>x.items.length).map(({g,items})=>`<div class="card"><h3 style="margin-top:0">${g.name}</h3>${items.map(it=>{ const v=d[it.c]||{}; const pts=ptsObj().filter(p=>p.item===it.c); const npt=pts.length, ntm=pts.filter(isTemuan).length; const logv=it.log?logSummary(it.log):""; return `<div class="l2it ${itemDone(v,it.c)?"done":""}" data-c="${it.c}">
   <div class="hd"><span class="c">${it.c}</span><div style="flex:1"><b>${it.n}</b><div class="ac">${it.m?"<i>Metode:</i> "+it.m+". ":""}${it.ac?"<i>Acuan:</i> "+it.ac:""}</div></div></div>
   ${it.t==="u"?`<div class="ln"><label>Rencana/as-built</label><input class="v" type="text" data-f="r" value="${esc(v.r||"")}" placeholder="${it.u}"><label>Lapangan</label><input class="v" type="text" data-f="v" value="${esc(v.v||"")}" placeholder="${it.u}">${logv?`<span class="note">log: ${logv} ${it.u}</span>`:""}</div>`:""}
   <div class="ln"><label>Kesesuaian</label><div class="chip" data-f="s">${SESL.map((o,i)=>`<button class="${v.s===o?"on s"+(i===2?3:i):""}">${o}</button>`).join("")}</div></div>
@@ -588,9 +591,10 @@ function renderL2(){ renderStages(); const st=STAGES.find(x=>x.id===S.stage); co
   card.querySelector("[data-pt0]").onclick=()=>newPt({item:c});
   card.querySelectorAll("[data-op]").forEach(d=>d.onclick=()=>openPt(d.dataset.op));
  });
- $("#stPrev").disabled=S.stage==="T1"; $("#stNext").disabled=S.stage==="T5"; }
-$("#stPrev").onclick=()=>{ const i=STAGES.findIndex(s=>s.id===S.stage); if(i>0){S.stage=STAGES[i-1].id; save(); renderL2();} };
-$("#stNext").onclick=()=>{ const i=STAGES.findIndex(s=>s.id===S.stage); if(i<STAGES.length-1){S.stage=STAGES[i+1].id; save(); renderL2();} };
+ const vis=STAGES.filter(st=>stageProg(st)[1]); $("#stPrev").disabled=vis[0]&&vis[0].id===S.stage; $("#stNext").disabled=vis.length&&vis[vis.length-1].id===S.stage; }
+$("#selView").onchange=()=>{ S.view=$("#selView").value; save(); renderL2(); };
+$("#stPrev").onclick=()=>{ const vis=STAGES.filter(st=>stageProg(st)[1]); const i=vis.findIndex(s=>s.id===S.stage); if(i>0){S.stage=vis[i-1].id; save(); renderL2();} };
+$("#stNext").onclick=()=>{ const vis=STAGES.filter(st=>stageProg(st)[1]); const i=vis.findIndex(s=>s.id===S.stage); if(i<vis.length-1){S.stage=vis[i+1].id; save(); renderL2();} };
 
 /* ====== MAP ====== */
 let tf={x:0,y:0,s:0.3}, pick=null;
@@ -602,7 +606,7 @@ function renderMap(){ const l=lvl(); $("#selLevel").value=l.id; if(l.img&&IMG[l.
  const hs=$("#hots"); hs.innerHTML=l.rooms.map(r=>`<div class="hot" style="left:${r.x}px;top:${r.y}px"><span>${esc(r.name)}</span></div>`).join(""); hs.style.display=$("#chkHot").checked?"block":"none";
  renderMarks(); renderPtList(); fitMap(); }
 $("#chkHot").onchange=()=>{$("#hots").style.display=$("#chkHot").checked?"block":"none";};
-function visiblePts(){ const l=lvl(); const flt=$("#selFilter").value; return ptsObj().filter(p=>p.lvl===l.id).filter(p=>{ if(flt==="all") return true; if(flt==="temuan") return isTemuan(p); if(flt==="item") return pick&&p.item===pick.item; return L2_BY[p.item]&&L2_BY[p.item].stage===flt; }); }
+function visiblePts(){ const l=lvl(); const flt=$("#selFilter").value; return ptsObj().filter(p=>p.lvl===l.id).filter(p=>{ if(flt==="all") return true; if(flt==="temuan") return isTemuan(p); if(flt==="item") return pick&&p.item===pick.item; if(flt==="view") return S.view==="ALL"||(L2_BY[p.item]&&L2_BY[p.item].d===S.view); return L2_BY[p.item]&&L2_BY[p.item].stage===flt; }); }
 function renderMarks(){ $("#marks").innerHTML=visiblePts().filter(p=>p.x!=null).map(p=>`<div class="pk ${isTemuan(p)?"t":""}" style="left:${p.x}px;top:${p.y}px"><b class="k${p.kat}"></b><i>${p.item}·${p.no}</i></div>`).join(""); }
 $("#selFilter").onchange=()=>{renderMarks(); renderPtList();};
 function setPick(item){ pick=item?{item}:null; const pb=$("#pickbar"); if(pick){ const it=L2_BY[item]; pb.style.display="block"; pb.innerHTML=`📍 <b>Mode titik:</b> ${it.c} ${esc(it.n)} — ${(PMODES[it.pm]||PMODES.VISUAL).n}. <b>Ketuk denah</b> pada lokasi objek, ulangi untuk titik berikutnya. <button class="btn sec sm" id="pickX">Selesai</button>`; $("#pickX").onclick=()=>setPick(null); $("#selFilter").value="item"; } else { pb.style.display="none"; if($("#selFilter").value==="item") $("#selFilter").value="all"; } renderMarks(); renderPtList(); }
@@ -616,7 +620,7 @@ wrap.addEventListener("pointerdown",e=>{ if(e.target.closest("#tapinfo")) return
 wrap.addEventListener("pointermove",e=>{ if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); if(pinch&&pts.size===2){ const [a,b]=[...pts.values()]; const d=Math.hypot(a.x-b.x,a.y-b.y); const r=wrap.getBoundingClientRect(); const cx=(a.x+b.x)/2-r.left, cy=(a.y+b.y)/2-r.top; const ns=Math.min(4,Math.max(0.1,pinch.s*d/pinch.d)); const pcx=pinch.cx-r.left,pcy=pinch.cy-r.top; tf.s=ns; tf.x=cx-(pcx-pinch.x)*(ns/pinch.s); tf.y=cy-(pcy-pinch.y)*(ns/pinch.s); applyTf(); } else if(drag){ const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy; if(Math.abs(dx)>6||Math.abs(dy)>6) drag.moved=true; tf.x=drag.ox+dx; tf.y=drag.oy+dy; applyTf(); } });
 function endP(e){ pts.delete(e.pointerId); if(pts.size<2) pinch=null; if(drag&&!drag.moved&&pts.size===0){ onTap(e); } if(pts.size===0) drag=null; }
 wrap.addEventListener("pointerup",endP); wrap.addEventListener("pointercancel",endP);
-function itemSelectHtml(id,val){ return `<select id="${id}"><option value="">— pilih butir Lampiran 2 —</option>${S.lastItem&&L2_BY[S.lastItem]?`<optgroup label="Terakhir dipakai"><option value="${S.lastItem}">${S.lastItem} ${esc(L2_BY[S.lastItem].n)}</option></optgroup>`:""}${STAGES.map(st=>`<optgroup label="${st.name}">${st.groups.map(g=>g.items.map(it=>`<option value="${it.c}" ${val===it.c?"selected":""}>${it.c} ${esc(it.n)}${it.pm?"":" (tanpa denah)"}</option>`).join("")).join("")}</optgroup>`).join("")}</select>`; }
+function itemSelectHtml(id,val){ const vis=it=>S.view==="ALL"||it.d===S.view||it.c.endsWith(".X")||it.c===val; return `<select id="${id}"><option value="">— pilih butir Lampiran 2${S.view!=="ALL"?" ("+DIS[S.view].n+")":""} —</option>${S.lastItem&&L2_BY[S.lastItem]?`<optgroup label="Terakhir dipakai"><option value="${S.lastItem}">${S.lastItem} ${esc(L2_BY[S.lastItem].n)}</option></optgroup>`:""}${STAGES.map(st=>{const its=[].concat(...st.groups.map(g=>g.items.filter(vis))); return its.length?`<optgroup label="${st.name}">${its.map(it=>`<option value="${it.c}" ${val===it.c?"selected":""}>${it.c} ${esc(it.n)}${it.pm?"":" (tanpa denah)"}</option>`).join("")}</optgroup>`:"";}).join("")}</select>`; }
 function onTap(e){ const l=lvl(); if(!l.img) return; const r=wrap.getBoundingClientRect(); const mx=(e.clientX-r.left-tf.x)/tf.s, my=(e.clientY-r.top-tf.y)/tf.s; if(mx<0||my<0||mx>1960||my>1530) return;
  const near=visiblePts().filter(p=>p.x!=null).find(p=>Math.hypot(p.x-mx,p.y-my)<18/tf.s); if(near){ openPt(near.id); return; }
  const room=nearestRoom(l,mx,my); const g=gridName(mx,my); const loc={x:Math.round(mx),y:Math.round(my),room:room?room.code:"",grid:g};
