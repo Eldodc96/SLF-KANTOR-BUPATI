@@ -705,17 +705,33 @@ function fotoKey(v,baru){ let k=PHK.get(v); if(!k){ k="ph_"+Date.now().toString(
 let simpanJalan=null, simpanLagi=false, peringatanPenuh=0;
 async function simpanIDB(){ if(simpanJalan){ simpanLagi=true; return simpanJalan; }
  simpanJalan=(async()=>{ try{ const baru=[]; const json=JSON.stringify(S,(k,v)=>isFoto(v)?fotoKey(v,baru):v);
-  const tx=DB.transaction(["kv","foto"],"readwrite"); const fs=tx.objectStore("foto"); baru.forEach(([k,v])=>fs.put(v,k)); tx.objectStore("kv").put(json,KEY); await txDone(tx);
+  const tx=DB.transaction(["kv","foto"],"readwrite"); const fs=tx.objectStore("foto"); baru.forEach(([k,v])=>fs.put(v,k)); const tSimpan=Date.now(); tx.objectStore("kv").put(json,KEY); tx.objectStore("kv").put(tSimpan,KEY+"_t"); await txDone(tx); try{ const d=JSON.parse(localStorage.getItem(KEY_DARURAT)||"null"); if(d&&d.t<=tSimpan) localStorage.removeItem(KEY_DARURAT); }catch(e){}
   if(!simpanIDB.persist&&navigator.storage&&navigator.storage.persist){ simpanIDB.persist=1; navigator.storage.persist().catch(()=>{}); }
  }catch(e){ console.error(e); if(Date.now()-peringatanPenuh>60000){ peringatanPenuh=Date.now(); const pakai=await infoPenyimpanan(); alert(`Data gagal disimpan (${e&&e.name==="QuotaExceededError"?"ruang penyimpanan HP penuh":(e&&e.message||e)}).\n${pakai}\n\nSegera ekspor JSON sebagai cadangan, lalu kosongkan ruang HP.`); } }
- finally{ simpanJalan=null; if(simpanLagi){ simpanLagi=false; simpanIDB(); } } })(); return simpanJalan; }
+ finally{ simpanJalan=null; if(simpanLagi){ simpanLagi=false; simpanIDB(); } else if(!saveT) cadanganDarurat.kotor=0; } })(); return simpanJalan; }
 let saveT=null;
-function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ saveT=null; if(!DB_READY) return; /* jangan menimpa data sebelum selesai dimuat */ if(DB_OK) simpanIDB(); else simpanLS(); },400); }
+function save(){ cadanganDarurat.kotor=1; clearTimeout(saveT); saveT=setTimeout(()=>{ saveT=null; if(!DB_READY) return; /* jangan menimpa data sebelum selesai dimuat */ if(DB_OK) simpanIDB(); else simpanLS(); },400); }
 function simpanLS(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ alert("Penyimpanan browser penuh dan IndexedDB tidak tersedia di browser ini. Segera ekspor JSON. Gunakan Chrome/Edge versi terbaru atau buka lewat alamat GitHub Pages."); } }
 /* simpan segera bila aplikasi ditutup/berpindah aplikasi */
-document.addEventListener("visibilitychange",()=>{ if(document.hidden&&saveT&&DB_READY){ clearTimeout(saveT); saveT=null; if(DB_OK) simpanIDB(); else simpanLS(); } });
+const KEY_DARURAT=KEY+"_darurat";
+/* IndexedDB bersifat asinkron: bila halaman di-refresh/ditutup sebelum penulisan selesai,
+   perubahan terakhir bisa hilang. Karena itu, saat halaman disembunyikan/ditutup, state
+   (foto lama sebagai rujukan, foto baru apa adanya) disalin SINKRON ke localStorage, lalu
+   dipulihkan saat aplikasi dibuka lagi bila lebih baru dari isi IndexedDB. */
+function cadanganDarurat(){ if(!DB_READY) return;
+ try{ if(curP&&$("#pmodal").classList.contains("on")){ readP(); cadanganDarurat.kotor=1; } }catch(e){}
+ if(!DB_OK){ if(saveT){ clearTimeout(saveT); saveT=null; } simpanLS(); return; }
+ if(!saveT&&!simpanJalan&&!cadanganDarurat.kotor) return; /* tidak ada perubahan tertunda */
+ if(saveT){ clearTimeout(saveT); saveT=null; }
+ try{ const json=JSON.stringify(S,(k,v)=>isFoto(v)&&PHK.has(v)?"idb:"+PHK.get(v):v); localStorage.setItem(KEY_DARURAT,JSON.stringify({t:Date.now(),json})); }catch(e){ console.warn("cadangan darurat gagal",e); }
+ simpanIDB(); }
+document.addEventListener("visibilitychange",()=>{ if(document.hidden) cadanganDarurat(); });
+window.addEventListener("pagehide",cadanganDarurat);
+window.addEventListener("beforeunload",cadanganDarurat);
 async function muatIDB(){ const tx=DB.transaction(["kv","foto"],"readonly"); const kv=tx.objectStore("kv"), fs=tx.objectStore("foto");
- const [json,keys,vals]=await Promise.all([reqP(kv.get(KEY)),reqP(fs.getAllKeys()),reqP(fs.getAll())]);
+ let [json,tIdb,keys,vals]=await Promise.all([reqP(kv.get(KEY)),reqP(kv.get(KEY+"_t")),reqP(fs.getAllKeys()),reqP(fs.getAll())]);
+ let dar=null; try{ dar=JSON.parse(localStorage.getItem(KEY_DARURAT)||"null"); }catch(e){}
+ if(dar&&dar.json&&(!json||!tIdb||dar.t>tIdb)){ json=dar.json; muatIDB.pulih=true; } else if(dar){ try{ localStorage.removeItem(KEY_DARURAT); }catch(e){} }
  if(!json) return null; const F=new Map(); keys.forEach((k,i)=>F.set(k,vals[i]));
  let hilang=0; const s=JSON.parse(json,(k,v)=>{ if(typeof v==="string"&&v.startsWith("idb:")){ const d=F.get(v.slice(4)); if(d){ PHK.set(d,v.slice(4)); return d; } hilang++; return ""; } return v; });
  /* bersihkan foto yang sudah tidak dirujuk (foto yang dihapus) */
@@ -731,7 +747,7 @@ async function tampilInfoSimpan(){ const el=$("#infoSimpan"); if(!el) return; co
 async function bootSimpan(){ const tirai=$("#tirai");
  try{ DB=await idbOpen(); DB_OK=true; }catch(e){ console.warn(e); DB_OK=false; }
  if(DB_OK){ try{ const s=await muatIDB();
-   if(s){ S=migrate(s); }
+   if(s){ S=migrate(s); if(muatIDB.pulih){ DB_READY=true; await simpanIDB(); } }
    else { /* belum ada di IndexedDB: pindahkan dari localStorage bila ada */
     let lama=null; try{ lama=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
     if(lama){ S=migrate(lama); await simpanIDB(); try{ localStorage.removeItem(KEY); }catch(e){} } } }
@@ -930,6 +946,10 @@ $("#pCam").onchange=e=>{addPPhotos(e.target.files); e.target.value="";}; $("#pGa
 function readP(){ readPOff(); curP.nama=$("#pNama").value.trim(); $$("#pFields [data-pk]").forEach(e=>curP.v[e.dataset.pk]=e.value); curP.item=$("#pItem").value||curP.item; curP.room=$("#pRoom").value; curP.grid=$("#pGrid").value; curP.who=$("#pWho").value; curP.metode=$("#pMetode").value; curP.note=$("#pNote").value; curP.jenis=$("#tJenis").value; curP.jenisx=$("#tJenisX").value; curP.pola=$("#tPola").value; curP.lebar=$("#tLebar").value; curP.panjang=$("#tPanjang").value; curP.luas=$("#tLuas").value; curP.sebab=$("#tSebab").value; curP.rek=$("#tRek").value; curP.prio=$("#tPrio").value; if(curP.kat===4) curP.prio="Segera"; }
 function closeP(){ readP(); save(); $("#pmodal").classList.remove("on"); renderMarks(); renderPtList(); if($("#tab-simak").classList.contains("on")) renderL2(); }
 $("#pSave").onclick=closeP; $("#pClose").onclick=closeP;
+/* formulir sampel tersimpan otomatis setiap ada perubahan — aman bila halaman dimuat ulang
+   (mis. Android memuat ulang browser setelah kamera dibuka) sebelum tombol Simpan ditekan */
+let autoP=null; const autoSimpanP=()=>{ clearTimeout(autoP); autoP=setTimeout(()=>{ if(curP&&$("#pmodal").classList.contains("on")){ try{ readP(); save(); }catch(e){} } },250); };
+["input","change"].forEach(ev=>$("#pmodal").addEventListener(ev,autoSimpanP)); $("#pmodal").addEventListener("click",e=>{ if(e.target.closest("button")&&!e.target.closest("#pDel,#pClose,#pSave,#pNext")) autoSimpanP(); });
 /* simpan lalu langsung siap mengetuk sampel berikutnya untuk butir yang sama */
 $("#pNext").onclick=()=>{ const item=curP.item; closeP(); if(!$("#tab-denah").classList.contains("on")) goTab("denah"); setPick(item); };
 $("#pDel").onclick=()=>{ if(!confirm("Hapus titik "+curP.id+"?")) return; const arr=ptsObj(curP.bld); arr.splice(arr.findIndex(p=>p.id===curP.id),1); save(); $("#pmodal").classList.remove("on"); renderMarks(); renderPtList(); if($("#tab-simak").classList.contains("on")) renderL2(); };
