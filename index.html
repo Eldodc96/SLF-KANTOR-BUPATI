@@ -340,6 +340,7 @@ textarea{min-height:64px;resize:vertical}
       <label class="btn sec" style="cursor:pointer">Impor / gabung JSON <input type="file" id="impJson" accept=".json" multiple style="display:none"></label>
       <button class="btn dng" id="btnReset">Hapus semua data</button>
     </div>
+    <p class="note" id="infoSimpan"></p>
     <p class="note"><b>Excel</b> = DAFTAR SIMAK PEMERIKSAAN BG SLF (DOK ADMIN, A_TATA BG, B.1_STRUKTUR, B.2_MEP, C_KESEHATAN, D_KENYAMANAN, E_KEMUDAHAN, LAMPIRAN TIM, REKAP, TITIK) — tiap titik menjadi satu baris sampel. <b>Word</b> = laporan Times New Roman 12: data umum, rekap, peta titik per denah, kartu temuan berfoto, lampiran daftar simak ringkas. Keduanya dibuat di perangkat ini tanpa internet.</p>
     <p class="note"><b>Kerja tim paralel:</b> tiap perangkat punya kode sendiri (lihat Data Umum) yang masuk ke ID titik, jadi tim Struktur, Arsitektur, MEP bisa mengisi butir/tahap/gedung yang berbeda — atau bahkan butir yang sama — tanpa bentrok. Tiap akhir hari: <b>Ekspor JSON</b> → kirim ke koordinator → koordinator <b>Impor/gabung</b> semua file (boleh sekaligus banyak file). Titik digabung berdasarkan ID; penilaian butir Lampiran 2 diisi dari perangkat lain bila di sini masih kosong, dan bila dua perangkat menilai butir yang sama secara berbeda, impor akan melaporkannya untuk diputuskan ahli. File gabungan hasil impor bisa diekspor lagi sebagai JSON induk.</p>
   </div>
@@ -360,6 +361,7 @@ textarea{min-height:64px;resize:vertical}
 </section>
 </main>
 
+<div id="tirai" style="position:fixed;inset:0;z-index:99;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;font:600 16px system-ui,sans-serif;color:#1F4E79">Memuat data survei…</div>
 <!-- ============ MODAL SAMPEL / TITIK PEMERIKSAAN (v12: isian ringkas) ============ -->
 <div id="pmodal" class="modal"><div class="box">
   <div class="hd phd"><h2 id="pTitle">Sampel</h2><button class="btn sec sm" id="pClose">Tutup</button></div>
@@ -679,14 +681,65 @@ const VIEW_GUIDE={
 /* ====== STATE ====== */
 const KEY="simakbg_malaka_v2";
 let S = load();
-function load(){ try{const s=JSON.parse(localStorage.getItem(KEY)); if(s) return migrate(s);}catch(e){} return migrate({umum:{},dok:{},l2:{},pts:{},bld:"GU",lvl:"L1",stage:"T1",lastItem:""}); }
+function load(){ return migrate({umum:{},dok:{},l2:{},pts:{},bld:"GU",lvl:"L1",stage:"T1",lastItem:""}); } /* data tersimpan dimuat asinkron oleh bootSimpan() */
 function newDev(){ const a="ABCDEFGHJKLMNPQRSTUVWXYZ"; return a[Math.floor(Math.random()*24)]+a[Math.floor(Math.random()*24)]+Math.floor(10+Math.random()*90); }
-function migrate(s){ s.l2=s.l2||{}; s.pts=s.pts||{}; s.stage=s.stage||"T1"; s.lastItem=s.lastItem||""; s.dev=s.dev||newDev(); s.dok=s.dok||{}; s.umum=s.umum||{};
+function migrate(s){ s.view=s.view||"ALL"; s.l2=s.l2||{}; s.pts=s.pts||{}; s.stage=s.stage||"T1"; s.lastItem=s.lastItem||""; s.dev=s.dev||newDev(); s.dok=s.dok||{}; s.umum=s.umum||{};
  /* temuan versi lama -> titik pada butir Lain-lain */
  if(false){ const map={STR:"II.A.X",ARS:"I.X",MEP:"II.B.X",AKS:"II.D.X",LNG:"I.X"}; s.find.forEach(f=>{ s.pts[f.bld]=s.pts[f.bld]||[]; const item=f.item||map[f.dis]||"I.X"; const no=s.pts[f.bld].filter(p=>p.item===item).length+1; s.pts[f.bld].push({id:`${f.bld}-${item}-${String(no).padStart(2,"0")}`,no,item,bld:f.bld,lvl:f.lvl,x:f.x,y:f.y,room:f.room,grid:f.grid,v:{obj:(f.elem||"")+(f.elemx?" "+f.elemx:"")},kat:f.kat||0,jenis:f.jenis||"",jenisx:f.jenisx||"",pola:f.pola||"",lebar:f.lebar||"",panjang:f.panjang||"",luas:f.luas||"",sebab:f.sebab||"",rek:f.rek||"",prio:f.prio||"Rendah",metode:f.metode||"Visual",photos:f.photos||[],note:f.note||"",who:f.who||"",ts:f.ts,gps:f.gps||""}); }); delete s.find; }
  Object.values(s.pts).forEach(arr=>arr.forEach(p=>{ p.v=p.v||{}; p.photos=p.photos||[]; p.kat=p.kat||0; p.prio=p.prio||"Rendah"; p.metode=p.metode||"Visual"; })); return s; }
+/* ====== PENYIMPANAN (v18): IndexedDB ======
+   localStorage hanya ±5–10 MB per situs — habis setelah puluhan foto. Data kini disimpan di
+   IndexedDB (kuota ratusan MB s.d. GB, mengikuti ruang kosong HP):
+     kv["simakbg_malaka_v2"] = state JSON tanpa foto (foto diganti rujukan "idb:<kunci>")
+     foto[<kunci>]           = dataURL foto, ditulis SEKALI saat foto baru muncul
+   Data lama di localStorage dipindahkan otomatis lalu dihapus dari localStorage. */
+const IDB_NAME="simakbg", IDB_VER=1; let DB=null, DB_OK=false, DB_READY=false;
+const PHK=new Map(); let phN=0;          /* dataURL → kunci foto (Map menyimpan hash string sekali) */
+function idbOpen(){ return new Promise((res,rej)=>{ if(!window.indexedDB) return rej(new Error("IndexedDB tidak tersedia"));
+ const r=indexedDB.open(IDB_NAME,IDB_VER); r.onupgradeneeded=()=>{ const d=r.result; if(!d.objectStoreNames.contains("kv")) d.createObjectStore("kv"); if(!d.objectStoreNames.contains("foto")) d.createObjectStore("foto"); };
+ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error||new Error("gagal membuka IndexedDB")); r.onblocked=()=>rej(new Error("IndexedDB terblokir")); }); }
+const txDone=tx=>new Promise((res,rej)=>{ tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); tx.onabort=()=>rej(tx.error||new Error("transaksi dibatalkan")); });
+const reqP=r=>new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+const isFoto=v=>typeof v==="string"&&v.length>300&&v.startsWith("data:image");
+function fotoKey(v,baru){ let k=PHK.get(v); if(!k){ k="ph_"+Date.now().toString(36)+"_"+(phN++).toString(36); PHK.set(v,k); baru.push([k,v]); } return "idb:"+k; }
+let simpanJalan=null, simpanLagi=false, peringatanPenuh=0;
+async function simpanIDB(){ if(simpanJalan){ simpanLagi=true; return simpanJalan; }
+ simpanJalan=(async()=>{ try{ const baru=[]; const json=JSON.stringify(S,(k,v)=>isFoto(v)?fotoKey(v,baru):v);
+  const tx=DB.transaction(["kv","foto"],"readwrite"); const fs=tx.objectStore("foto"); baru.forEach(([k,v])=>fs.put(v,k)); tx.objectStore("kv").put(json,KEY); await txDone(tx);
+  if(!simpanIDB.persist&&navigator.storage&&navigator.storage.persist){ simpanIDB.persist=1; navigator.storage.persist().catch(()=>{}); }
+ }catch(e){ console.error(e); if(Date.now()-peringatanPenuh>60000){ peringatanPenuh=Date.now(); const pakai=await infoPenyimpanan(); alert(`Data gagal disimpan (${e&&e.name==="QuotaExceededError"?"ruang penyimpanan HP penuh":(e&&e.message||e)}).\n${pakai}\n\nSegera ekspor JSON sebagai cadangan, lalu kosongkan ruang HP.`); } }
+ finally{ simpanJalan=null; if(simpanLagi){ simpanLagi=false; simpanIDB(); } } })(); return simpanJalan; }
 let saveT=null;
-function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){alert("Penyimpanan penuh! Segera ekspor JSON lalu hapus data lama.");} },150); }
+function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ saveT=null; if(!DB_READY) return; /* jangan menimpa data sebelum selesai dimuat */ if(DB_OK) simpanIDB(); else simpanLS(); },400); }
+function simpanLS(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ alert("Penyimpanan browser penuh dan IndexedDB tidak tersedia di browser ini. Segera ekspor JSON. Gunakan Chrome/Edge versi terbaru atau buka lewat alamat GitHub Pages."); } }
+/* simpan segera bila aplikasi ditutup/berpindah aplikasi */
+document.addEventListener("visibilitychange",()=>{ if(document.hidden&&saveT&&DB_READY){ clearTimeout(saveT); saveT=null; if(DB_OK) simpanIDB(); else simpanLS(); } });
+async function muatIDB(){ const tx=DB.transaction(["kv","foto"],"readonly"); const kv=tx.objectStore("kv"), fs=tx.objectStore("foto");
+ const [json,keys,vals]=await Promise.all([reqP(kv.get(KEY)),reqP(fs.getAllKeys()),reqP(fs.getAll())]);
+ if(!json) return null; const F=new Map(); keys.forEach((k,i)=>F.set(k,vals[i]));
+ let hilang=0; const s=JSON.parse(json,(k,v)=>{ if(typeof v==="string"&&v.startsWith("idb:")){ const d=F.get(v.slice(4)); if(d){ PHK.set(d,v.slice(4)); return d; } hilang++; return ""; } return v; });
+ /* bersihkan foto yang sudah tidak dirujuk (foto yang dihapus) */
+ const dipakai=new Set((json.match(/idb:ph_[0-9a-z_]+/g)||[]).map(x=>x.slice(4))); const yatim=keys.filter(k=>!dipakai.has(k));
+ if(yatim.length){ const t2=DB.transaction("foto","readwrite"); yatim.forEach(k=>t2.objectStore("foto").delete(k)); }
+ /* buang rujukan foto kosong */
+ Object.values(s.pts||{}).forEach(a=>a.forEach(p=>{ p.photos=(p.photos||[]).filter(Boolean); }));
+ Object.values(s.l2||{}).forEach(d=>Object.values(d).forEach(v=>{ if(v&&v.p) v.p=v.p.filter(Boolean); }));
+ if(hilang) console.warn(hilang+" foto tidak ditemukan di IndexedDB"); return s; }
+async function infoPenyimpanan(){ try{ if(!navigator.storage||!navigator.storage.estimate) return ""; const e=await navigator.storage.estimate(); const p=navigator.storage.persisted?await navigator.storage.persisted():false;
+ const mb=x=>x>1e9?(x/1e9).toFixed(1)+" GB":(x/1e6).toFixed(0)+" MB"; return `Terpakai ${mb(e.usage||0)} dari kuota ±${mb(e.quota||0)}${p?" · tersimpan permanen":""}`; }catch(e){ return ""; } }
+async function tampilInfoSimpan(){ const el=$("#infoSimpan"); if(!el) return; const t=await infoPenyimpanan(); el.textContent=(DB_OK?"Penyimpanan: IndexedDB. ":"Penyimpanan: localStorage (terbatas ±5 MB). ")+t; }
+async function bootSimpan(){ const tirai=$("#tirai");
+ try{ DB=await idbOpen(); DB_OK=true; }catch(e){ console.warn(e); DB_OK=false; }
+ if(DB_OK){ try{ const s=await muatIDB();
+   if(s){ S=migrate(s); }
+   else { /* belum ada di IndexedDB: pindahkan dari localStorage bila ada */
+    let lama=null; try{ lama=JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+    if(lama){ S=migrate(lama); await simpanIDB(); try{ localStorage.removeItem(KEY); }catch(e){} } } }
+  catch(e){ console.error(e); alert("Gagal memuat data dari IndexedDB: "+(e.message||e)); } }
+ DB_READY=true; if(tirai) tirai.remove(); renderSemua(); tampilInfoSimpan(); }
+function renderSemua(){ $("#selBld").value=S.bld; fillUmum(); renderDok(); renderL2(); renderLevelSel(); renderMap(); lapInit(); if($("#tab-rekap").classList.contains("on")) renderRekap(); }
+async function hapusSemua(){ try{ localStorage.removeItem(KEY); }catch(e){} if(DB_OK){ const tx=DB.transaction(["kv","foto"],"readwrite"); tx.objectStore("kv").clear(); tx.objectStore("foto").clear(); await txDone(tx); } }
+
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const bld=()=>BUILDINGS.find(b=>b.id===S.bld)||BUILDINGS[0];
@@ -1208,8 +1261,8 @@ const LD_TW=15.5;                                   /* lebar teks (cm) */
 const cm2tw=c=>Math.round(c*567), cm2emu=c=>Math.round(c*360000);
 function LDoc(){ return {body:[],media:[],heads:[],caps:{fig:[],tab:[]},imgId:0}; }
 /* ---- run & paragraf ---- */
-function ldRun(t,o={}){ const pr=`<w:rPr>${o.b?"<w:b/>":""}${o.i?"<w:i/>":""}${o.u?'<w:u w:val="single"/>':""}${o.caps?"<w:caps/>":""}${o.sz?`<w:sz w:val="${o.sz*2}"/><w:szCs w:val="${o.sz*2}"/>`:""}${o.sup?'<w:vertAlign w:val="superscript"/>':""}</w:rPr>`;
- return String(t??"").split("\n").map((s,k)=>`${k?`<w:r>${pr}<w:br/></w:r>`:""}<w:r>${pr}<w:t xml:space="preserve">${xesc(s)}</w:t></w:r>`).join(""); }
+function ldRun(t,o={}){ const pr=`<w:rPr>${o.b?"<w:b/>":""}${o.i?"<w:i/>":""}${o.caps?"<w:caps/>":""}${o.sz?`<w:sz w:val="${o.sz*2}"/><w:szCs w:val="${o.sz*2}"/>`:""}${o.u?'<w:u w:val="single"/>':""}${o.sup?'<w:vertAlign w:val="superscript"/>':""}</w:rPr>`;
+ return String(t??"").split("\n").map((s,k)=>`${k?`<w:r>${pr}<w:br/></w:r>`:""}${s.split("\t").map((x,j)=>`${j?`<w:r>${pr}<w:tab/></w:r>`:""}<w:r>${pr}<w:t xml:space="preserve">${xesc(x)}</w:t></w:r>`).join("")}`).join(""); }
 /* isi: string | [[teks,opsi],...] */
 function ldRuns(c,o){ return Array.isArray(c)?c.map(x=>Array.isArray(x)?ldRun(x[0],{...o,...x[1]}):ldRun(x,o)).join(""):ldRun(c,o); }
 function ldP(c,o={}){ const ppr=[];
@@ -1247,7 +1300,7 @@ function ldTable(D,widths,head,rows,o={}){ const sz=o.sz||10; const tw=widths.ma
  const cell=(c,wi,isHead)=>{ const x=(c&&typeof c==="object"&&!Array.isArray(c))?c:{t:c}; const span=x.span||1; const w=tw.slice(wi,wi+span).reduce((a,b)=>a+b,0);
   return `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${span>1?`<w:gridSpan w:val="${span}"/>`:""}${x.vm?`<w:vMerge${x.vm==="restart"?' w:val="restart"':""}/>`:""}${(isHead||x.shade)?`<w:shd w:val="clear" w:color="auto" w:fill="${x.shade||"E7E6E6"}"/>`:""}<w:vAlign w:val="${isHead?"center":"top"}"/></w:tcPr>${String(x.t??"").split("\n\n").map(par=>ldP(Array.isArray(x.t)?x.t:par,{style:"IsiTabel",jc:x.jc||(isHead?"center":null),r:{b:isHead||x.b,i:x.i,sz:x.sz||sz}})).join("")}</w:tc>`; };
  const tr=(r,isHead)=>{ let wi=0; return `<w:tr><w:trPr>${isHead?"<w:tblHeader/>":""}<w:cantSplit/></w:trPr>${r.map(c=>{ const x=cell(c,wi,isHead); wi+=(c&&c.span)||1; return x; }).join("")}</w:tr>`; };
- D.body.push(`<w:tbl><w:tblPr><w:tblW w:w="${tw.reduce((a,b)=>a+b,0)}" w:type="dxa"/><w:jc w:val="center"/><w:tblLayout w:type="fixed"/><w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(b=>`<w:${b} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join("")}</w:tblBorders><w:tblCellMar><w:top w:w="28" w:type="dxa"/><w:left w:w="85" w:type="dxa"/><w:bottom w:w="28" w:type="dxa"/><w:right w:w="85" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${tw.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${(head||[]).map(r=>tr(r,true)).join("")}${rows.map(r=>tr(r,false)).join("")}</w:tbl>`);
+ D.body.push(`<w:tbl><w:tblPr><w:tblW w:w="${tw.reduce((a,b)=>a+b,0)}" w:type="dxa"/><w:jc w:val="center"/><w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(b=>`<w:${b} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join("")}</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="28" w:type="dxa"/><w:left w:w="85" w:type="dxa"/><w:bottom w:w="28" w:type="dxa"/><w:right w:w="85" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${tw.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>${(head||[]).map(r=>tr(r,true)).join("")}${rows.map(r=>tr(r,false)).join("")}</w:tbl>`);
  D.body.push(ldP("",{after:60,line:160})); }
 /* tabel dua kolom tanpa judul (data umum) */
 function ldKV(D,rows,w1){ ldTable(D,[w1||5.2,LD_TW-(w1||5.2)],null,rows.map(([k,v])=>[{t:k},{t:v||"–"}]),{sz:11}); }
@@ -1266,7 +1319,7 @@ ${sty("Heading1","heading 1",'<w:keepNext/><w:pageBreakBefore/><w:spacing w:befo
 ${sty("Heading2","heading 2",'<w:keepNext/><w:spacing w:before="360" w:after="120"/><w:ind w:left="567" w:hanging="567"/><w:jc w:val="left"/><w:outlineLvl w:val="1"/>','<w:b/><w:caps/>',{based:"Normal",next:"Normal"})}
 ${sty("Heading3","heading 3",'<w:keepNext/><w:spacing w:before="240" w:after="120"/><w:ind w:left="709" w:hanging="709"/><w:jc w:val="left"/><w:outlineLvl w:val="2"/>','<w:b/>',{based:"Normal",next:"Normal"})}
 ${sty("Heading4","heading 4",'<w:keepNext/><w:spacing w:before="200" w:after="80"/><w:ind w:left="397" w:hanging="397"/><w:jc w:val="left"/><w:outlineLvl w:val="3"/>','<w:b/>',{based:"Normal",next:"Normal"})}
-${sty("Daftar","Daftar Butir",'<w:spacing w:after="60"/><w:tabs><w:tab w:val="left" w:pos="567"/></w:tabs>',"",{based:"Normal"})}
+${sty("Daftar","Daftar Butir",'<w:tabs><w:tab w:val="left" w:pos="567"/></w:tabs><w:spacing w:after="60"/>',"",{based:"Normal"})}
 ${sty("IsiTabel","Isi Tabel",'<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>','<w:sz w:val="20"/><w:szCs w:val="20"/>',{based:"Normal"})}
 ${sty("KetTabel","Keterangan Tabel",'<w:keepNext/><w:spacing w:before="200" w:after="80" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>','<w:sz w:val="22"/><w:szCs w:val="22"/>',{based:"Normal"})}
 ${sty("KetGambar","Keterangan Gambar",'<w:spacing w:before="0" w:after="200" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/>','<w:sz w:val="20"/><w:szCs w:val="20"/>',{based:"Normal"})}
@@ -1274,12 +1327,12 @@ ${sty("Judul","Judul Halaman",'<w:keepNext/><w:spacing w:before="0" w:after="360
 ${sty("TOC1","toc 1",'<w:spacing w:before="120" w:after="0" w:line="276" w:lineRule="auto"/><w:jc w:val="left"/>','<w:b/>',{based:"Normal"})}
 ${sty("TOC2","toc 2",'<w:spacing w:after="0" w:line="276" w:lineRule="auto"/><w:ind w:left="397"/><w:jc w:val="left"/>',"",{based:"Normal"})}
 ${sty("TOC3","toc 3",'<w:spacing w:after="0" w:line="276" w:lineRule="auto"/><w:ind w:left="851"/><w:jc w:val="left"/>','<w:sz w:val="22"/>',{based:"Normal"})}
-${sty("Header","header",'<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="000000"/></w:pBdr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:tabs><w:tab w:val="right" w:pos="${cm2tw(LD_TW)}"/></w:tabs><w:jc w:val="left"/>','<w:i/><w:sz w:val="18"/><w:szCs w:val="18"/>',{based:"Normal"})}
-${sty("Footer","footer",'<w:pBdr><w:top w:val="single" w:sz="6" w:space="1" w:color="000000"/></w:pBdr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:tabs><w:tab w:val="right" w:pos="${cm2tw(LD_TW)}"/></w:tabs><w:jc w:val="left"/>','<w:sz w:val="18"/><w:szCs w:val="18"/>',{based:"Normal"})}
+${sty("Header","header",'<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="000000"/></w:pBdr><w:tabs><w:tab w:val="right" w:pos="'+cm2tw(LD_TW)+'"/></w:tabs><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>','<w:i/><w:sz w:val="18"/><w:szCs w:val="18"/>',{based:"Normal"})}
+${sty("Footer","footer",'<w:pBdr><w:top w:val="single" w:sz="6" w:space="1" w:color="000000"/></w:pBdr><w:tabs><w:tab w:val="right" w:pos="'+cm2tw(LD_TW)+'"/></w:tabs><w:spacing w:after="0" w:line="240" w:lineRule="auto"/><w:jc w:val="left"/>','<w:sz w:val="18"/><w:szCs w:val="18"/>',{based:"Normal"})}
 <w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style></w:styles>`;
  const header=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr ${NS}>${ldP([[hdr,{}]],{style:"Header"})}</w:hdr>`;
  const footer=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr ${NS}><w:p><w:pPr><w:pStyle w:val="Footer"/></w:pPr>${ldRun(ftr)}<w:r><w:tab/></w:r>${ldRun("Halaman ")}<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p></w:ftr>`;
- const settings=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:updateFields w:val="true"/><w:defaultTabStop w:val="567"/><w:characterSpacingControl w:val="doNotCompress"/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>`;
+ const settings=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:defaultTabStop w:val="567"/><w:characterSpacingControl w:val="doNotCompress"/><w:updateFields w:val="true"/><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>`;
  const core=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xesc(o.title||"")}</dc:title><dc:creator>${xesc(o.author||"")}</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0,19)}Z</dcterms:created></cp:coreProperties>`;
  const files=[
   {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/><Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/><Override PartName="/word/header2.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/><Override PartName="/word/footer2.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`},
@@ -1544,7 +1597,7 @@ async function buildLaporan(sel,opt){ opt=opt||{}; const prog=opt.onProg||(()=>{
  cover.push(ldP(lingkupNm.toUpperCase(),{jc:"center",after:480,r:{b:true,sz:13}}));
  cover.push(ldP(NAMA.toUpperCase(),{jc:"center",after:360,r:{b:true,sz:16}}));
  const coverPh=[...["A.1.1","A.3.1","A.3.2","A.3.3"].flatMap(c=>{ const it=L2_BY[c]; return it?(sxVal(it).p||[]).concat(sxPts(it).flatMap(p=>p.photos)):[]; }),...allPh].map(pimg).find(Boolean);
- if(coverPh){ const r=coverPh.h/coverPh.w; const wcm=Math.min(12.5,8.5/r); cover.push(`<w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="480"/></w:pPr>${ldImgXml(F,coverPh,wcm)}</w:p>`); }
+ if(coverPh){ const r=coverPh.h/coverPh.w; const wcm=Math.min(12.5,8.5/r); cover.push(`<w:p><w:pPr><w:spacing w:after="480"/><w:jc w:val="center"/></w:pPr>${ldImgXml(F,coverPh,wcm)}</w:p>`); }
  else cover.push(ldP("",{after:2400}));
  cover.push(ldP("Kajian Teknis Bangunan Gedung dan Kawasan Kantor Bupati Malaka",{jc:"center",after:600,r:{i:true,sz:12}}));
  cover.push(ldP("Disusun oleh:",{jc:"center",after:60,r:{sz:11}}));
@@ -1602,7 +1655,7 @@ function renderRekap(){ const all=allPts(); const tm=all.filter(isTemuan); const
  $("#stat").innerHTML=KAT.map((k,i)=>`<div><b>${all.filter(p=>p.kat===i).length}</b><small>${k}</small></div>`).join("")+`<div><b>${all.reduce((a,p)=>a+p.photos.length,0)}</b><small>foto</small></div>`;
  const kr=tm.filter(p=>p.kat>=3||p.prio==="Segera"); $("#kritis").innerHTML=kr.length?`<table class="tbl"><tr><th>ID</th><th>Lokasi</th><th>Butir</th><th>Temuan</th><th>Kondisi</th><th>Prioritas</th></tr>${kr.map(p=>`<tr><td>${p.id}</td><td>${esc(bName(p.bld))} ${p.lvl} · ${esc(roomNameP(p))}</td><td>${esc((L2_BY[p.item]||{}).n||p.item)}</td><td>${esc(p.jenis||p.jenisx)}</td><td><span class="pill k${p.kat}">${KAT[p.kat]}</span></td><td>${p.prio}</td></tr>`).join("")}</table>`:'<p class="note">Tidak ada.</p>';
  const rows=[]; BUILDINGS.forEach(b=>b.levels.forEach(l=>{ const r=STAGES.map(st=>{const ps=ptsObj(b.id).filter(p=>p.lvl===l.id&&L2_BY[p.item]&&L2_BY[p.item].stage===st.id); return [ps.length,ps.filter(isTemuan).length];}); if(r.some(x=>x[0])) rows.push(`<tr><td>${b.name} — ${l.name}</td>${r.map(x=>`<td class="c">${x[0]||""}${x[1]?` <span class="pill k3">${x[1]}</span>`:""}</td>`).join("")}<td class="c"><b>${r.reduce((a,c)=>a+c[0],0)}</b></td></tr>`); })); $("#matrix").innerHTML=`<table class="tbl"><tr><th>Level</th>${STAGES.map(s=>`<th>${s.short}</th>`).join("")}<th>Σ</th></tr>${rows.join("")||'<tr><td colspan="7" class="note">Belum ada titik.</td></tr>'}</table><p class="note">Angka = jumlah titik; badge oranye = di antaranya temuan.</p>`;
- const d2=l2Obj(); updXlsxLabel(); if(typeof lapPaint==='function') lapPaint(); const I=indikasi(S.bld);
+ const d2=l2Obj(); updXlsxLabel(); if(typeof lapPaint==='function') lapPaint(); tampilInfoSimpan(); const I=indikasi(S.bld);
  $("#simakrekap").innerHTML=`<table class="tbl"><tr><th>Aspek</th><th class="c">Terisi</th><th class="c">Sampel</th><th class="c">Sesuai</th><th class="c">Tidak sesuai</th><th class="c">Rusak ringan</th><th class="c">Rusak sedang</th><th class="c">Rusak berat</th><th class="c">Kritis</th></tr>${I.A.map(o=>`<tr><td>${o.k} ${o.nm}</td><td class="c">${o.terisi}/${o.butir}</td><td class="c">${o.sampel}</td><td class="c">${o.ses}</td><td class="c">${o.ts?`<b style="color:var(--red)">${o.ts}</b>`:0}</td><td class="c">${o.r[1]}</td><td class="c">${o.r[2]}</td><td class="c">${o.r[3]?`<b style="color:var(--red)">${o.r[3]}</b>`:0}</td><td class="c">${o.r[4]?`<b style="color:var(--red)">${o.r[4]}</b>`:0}</td></tr>`).join("")}</table>`;
  $("#simakrekap").innerHTML+=`<div class="ov"><b>Indikasi awal ${bName(S.bld)} (otomatis, bukan keputusan ahli):</b> ${I.teks}<br><small>Butir terisi ${I.terisi}/${I.butir} · tidak sesuai ${I.ts} · rusak berat ${I.berat} · kritis ${I.krit}. Keandalan & kelaikan disimpulkan tim ahli di laporan.</small></div>`;
  const hm=ptsObj().filter(p=>L2_BY[p.item]&&L2_BY[p.item].pm==="HAMMER"); if(hm.length){ const byL={}; hm.forEach(p=>{ const r=[1,2,3,4,5,6,7,8,9,10,11,12].map(i=>+p.v["r"+i]).filter(v=>v>0); if(r.length<3) return; const m=r.reduce((a,b)=>a+b,0)/r.length; const ok=r.filter(v=>Math.abs(v-m)<=6); const R=ok.reduce((a,b)=>a+b,0)/ok.length; (byL[p.lvl]=byL[p.lvl]||[]).push({R,fc:+p.v.fc||null,tipe:(p.v.elem||"").slice(0,1)}); }); if(Object.keys(byL).length) $("#simakrekap").innerHTML+=`<h3>Rekap hammer test per lantai (${bName(S.bld)})</h3><table class="tbl"><tr><th>Lantai</th><th class="c">n titik</th><th class="c">R rata</th><th class="c">R min–maks</th><th class="c">fc' est. rata (MPa)</th></tr>${Object.entries(byL).map(([l,a])=>{const Rs=a.map(x=>x.R); const fcs=a.filter(x=>x.fc).map(x=>x.fc); return `<tr><td>${l}</td><td class="c">${a.length}</td><td class="c">${(Rs.reduce((x,y)=>x+y,0)/Rs.length).toFixed(1)}</td><td class="c">${Math.min(...Rs).toFixed(0)}–${Math.max(...Rs).toFixed(0)}</td><td class="c">${fcs.length?(fcs.reduce((x,y)=>x+y,0)/fcs.length).toFixed(1):"—"}</td></tr>`;}).join("")}</table><p class="note">R = rebound rata-rata setelah pembuangan bacaan >±6 dari rata-rata; fc' mengikuti kurva alat yang diisi di tiap titik.</p>`; }
@@ -1624,7 +1677,7 @@ $("#impJson").onchange=async e=>{ let add=0,dup=0,l2new=0,l2conf=[],dokNew=0,dok
   Object.entries(o.umum||{}).forEach(([b,d])=>{S.umum[b]=Object.assign({},d,S.umum[b]||{}); S.umum[b].tim=[S.umum[b].tim,d.tim].filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).join(" + ");});
  }catch(err){alert("Gagal membaca "+f.name+": "+err.message);} } save(); e.target.value="";
  let msg=`Impor selesai (${files.join(", ")}):\n• ${add} titik ditambahkan, ${dup} sudah ada (dilewati/diperbarui)\n• ${l2new} penilaian butir Lampiran 2 baru, ${dokNew} status dokumen baru`; if(l2conf.length) msg+=`\n\n⚠ ${l2conf.length} butir dinilai BERBEDA oleh perangkat lain (nilai di perangkat ini dipertahankan, cek manual):\n`+l2conf.slice(0,15).join("\n")+(l2conf.length>15?"\n…":""); if(dokConf.length) msg+=`\n⚠ ${dokConf.length} status dokumen berbeda (dipertahankan yang ada).`; alert(msg); renderMarks(); renderPtList(); renderL2(); renderRekap(); };
-$("#btnReset").onclick=()=>{ if(confirm("Hapus SEMUA data di perangkat ini? Pastikan sudah ekspor JSON.")&&confirm("Yakin?")){ localStorage.removeItem(KEY); location.reload(); } };
+$("#btnReset").onclick=async()=>{ if(confirm("Hapus SEMUA data di perangkat ini? Pastikan sudah ekspor JSON.")&&confirm("Yakin?")){ clearTimeout(saveT); saveT=null; DB_READY=false; await hapusSemua(); location.reload(); } };
 
 /* ====== PENYESUAIAN LAYAR HP ====== */
 /* Tinggi header berubah-ubah (judul bisa melipat jadi 2–3 baris di layar sempit,
@@ -1717,6 +1770,7 @@ function fitLayar(){ fitHead(); wrapTables(); if($("#tab-denah").classList.conta
 /* ====== INIT ====== */
 fillUmum(); renderDok(); renderL2(); renderLevelSel(); renderMap();
 fitHead(); wrapTables(); lapInit();
+bootSimpan();
 window.addEventListener("load",fitLayar);
 window.addEventListener("resize",fitLayar);
 window.addEventListener("orientationchange",()=>setTimeout(fitLayar,250));
