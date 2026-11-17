@@ -1,6 +1,6 @@
 /* Pelayan luring SIMAK-BG — menyimpan kerangka aplikasi agar tetap terbuka tanpa sinyal.
    Data survei TIDAK disimpan di sini (tersimpan di localStorage perangkat). */
-var VERSI = "simakbg-v19";
+var VERSI = "simakbg-v20";
 var ISI = ["./", "./index.html", "./manifest.json", "./icon.svg", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", function (ev) {
