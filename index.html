@@ -796,6 +796,8 @@ textarea{min-height:64px;resize:vertical}
 #acuWrap{overflow:auto;-webkit-overflow-scrolling:touch;max-height:70vh;border:1px solid var(--line);background:#fff;border-radius:8px}
 #acuImg{display:block;width:100%;max-width:none}
 .acuz{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.hmset{margin:6px 0;background:#f7f9fc;border-radius:8px;padding:6px 8px;font-size:13px}
+.hmset summary{cursor:pointer;color:var(--navy);font-weight:600}
 .modsw{padding:8px}
 #pkMapW{position:relative;margin:4px -4px 0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #pkMap{height:62vh;min-height:330px;max-height:640px;border-radius:10px;border:1px solid var(--line);background:#dde3ea;z-index:0}
@@ -1072,6 +1074,7 @@ textarea{min-height:64px;resize:vertical}
     <div class="btns">
       <button class="btn" id="btnJson">Ekspor JSON (lengkap + foto)</button>
       <button class="btn blue" id="btnXlsx">📊 Ekspor Excel daftar simak</button>
+      <button class="btn blue" id="btnUjiX">🧪 Excel pengujian alat + rumus</button>
       <button class="btn sec" id="btnCsv">CSV titik &amp; temuan</button>
       <button class="btn sec" id="btnSimakCsv">CSV butir</button>
       <button class="btn ok" id="btnPrint">Cetak rekap (PDF)</button>
@@ -1399,10 +1402,10 @@ const PMODES={
  SIGN:{n:"Pemeriksaan pertandaan",f:[{k:"jenis",l:"Jenis tanda",t:"sel",o:["Nama ruang","Petunjuk arah","Denah evakuasi","Tanda EXIT","Rambu parkir","Lainnya"]},{k:"ada",l:"Status",t:"sel",o:["Ada, jelas","Ada, tidak jelas","Tidak ada"]}]},
  LAMPU:{n:"Pemeriksaan titik lampu",f:[{k:"jenis",l:"Jenis armatur",t:"sel",o:["TL-LED 2×18 W","Downlight","Lampu luar","Lampu EXIT/darurat","Lainnya"]},{k:"jml",l:"Jumlah titik",t:"num"},{k:"mati",l:"Jumlah mati/rusak",t:"num"}],calc:p=>p.jml?`Berfungsi ${p.jml-(p.mati||0)}/${p.jml}`:""},
  PONDASI:{n:"Indikasi pondasi",f:[{k:"tipe",l:"Tipe (as-built P1–P9 / pas. batu)",t:"text"},{k:"ind",l:"Indikasi",t:"sel",o:["Tidak ada","Retak diagonal dinding","Penurunan lantai","Pergeseran/miring","Rembesan","Lainnya"]},{k:"ukur",l:"Nilai (mm / mm per m)",t:"text"}]},
- HAMMER:{n:"Hammer test (Schmidt) + visual elemen",f:[{k:"elem",l:"Elemen (K-5F, B-5F/6F, SW…)",t:"text"},{k:"dim",l:"Dimensi aktual b×h",t:"text",u:"mm"},{k:"asbdim",l:"Dimensi as-built",t:"text",u:"mm"},{k:"zona",l:"Zona sampel",t:"sel",o:["Kritis","Tipikal"]},{k:"prep",l:"Persiapan permukaan (kupas finishing & gerinda 15×15 cm)",t:"sel",o:["Ya","Tidak"]},{k:"bebas",l:"Area bebas tulangan (hasil rebar scan)",t:"sel",o:["Ya","Tidak dicek"]},{k:"sudut",l:"Arah pukulan",t:"sel",o:["Horizontal (0°)","Vertikal ke bawah (−90°)","Vertikal ke atas (+90°)","+45°","−45°"]},
+ HAMMER:{n:"Hammer test (Schmidt) + visual elemen",f:[{k:"elem",l:"Elemen (K-5F, B-5F/6F, SW…)",t:"text"},{k:"dim",l:"Dimensi aktual b×h",t:"text",u:"mm"},{k:"asbdim",l:"Dimensi as-built",t:"text",u:"mm"},{k:"zona",l:"Zona sampel",t:"sel",o:["Kritis","Tipikal"]},{k:"prep",l:"Persiapan permukaan (kupas finishing & gerinda 15×15 cm)",t:"sel",o:["Ya","Tidak"]},{k:"bebas",l:"Area bebas tulangan (hasil rebar scan)",t:"sel",o:["Ya","Tidak dicek"]},{k:"sudut",l:"Arah pukulan (+ = ke atas, − = ke bawah)",t:"sel",o:["Horizontal (0°)","Vertikal ke bawah (−90°)","Vertikal ke atas (+90°)","+45°","−45°"]},
    {k:"r1",l:"R1",t:"num"},{k:"r2",l:"R2",t:"num"},{k:"r3",l:"R3",t:"num"},{k:"r4",l:"R4",t:"num"},{k:"r5",l:"R5",t:"num"},{k:"r6",l:"R6",t:"num"},{k:"r7",l:"R7",t:"num"},{k:"r8",l:"R8",t:"num"},{k:"r9",l:"R9",t:"num"},{k:"r10",l:"R10",t:"num"},{k:"r11",l:"R11",t:"num"},{k:"r12",l:"R12",t:"num"},
-   {k:"fc",l:"fc' estimasi (kurva alat)",t:"num",u:"MPa"},{k:"fcr",l:"fc' rencana",t:"num",u:"MPa"},{k:"retak",l:"Lebar retak maks",t:"num",u:"mm"},{k:"rusak",l:"Kerusakan visual",t:"sel",o:["Tidak ada","Retak rambut","Retak struktural","Spalling","Tulangan terbuka/korosi","Honeycomb","Lainnya"]}],
-   calc:p=>{const r=[1,2,3,4,5,6,7,8,9,10,11,12].map(i=>+p["r"+i]).filter(v=>v>0); if(r.length<3) return ""; const m=r.reduce((a,b)=>a+b,0)/r.length; const ok=r.filter(v=>Math.abs(v-m)<=6); const m2=ok.reduce((a,b)=>a+b,0)/ok.length; return `${p.prep==="Tidak"?"⚠ permukaan belum disiapkan · ":""}n=${r.length}${r.length<10?" (< 10, tambah tumbukan)":""}, R rata ${m.toFixed(1)}; setelah buang >±6: n=${ok.length}, R = ${m2.toFixed(1)}`+(p.fc&&p.fcr?` · fc' ${p.fc}/${p.fcr} MPa (${(p.fc/p.fcr*100).toFixed(0)} %)`:"");}},
+   {k:"fc",l:"fc' estimasi — otomatis dari R (ketik untuk isi manual, kosongkan untuk otomatis lagi)",t:"num",u:"MPa"},{k:"fcr",l:"fc' rencana",t:"num",u:"MPa"},{k:"retak",l:"Lebar retak maks",t:"num",u:"mm"},{k:"rusak",l:"Kerusakan visual",t:"sel",o:["Tidak ada","Retak rambut","Retak struktural","Spalling","Tulangan terbuka/korosi","Honeycomb","Lainnya"]}],
+   calc:p=>hmTeks(p),auto:v=>hmAuto(v)},
  PELAT:{n:"Pemeriksaan pelat/dak",f:[{k:"tebal",l:"Tebal (as-built)",t:"text",u:"mm"},{k:"lendut",l:"Lendutan terukur",t:"num",u:"mm"},{k:"bentang",l:"Bentang",t:"num",u:"m"},{k:"retak",l:"Lebar retak maks",t:"num",u:"mm"},{k:"rembes",l:"Rembesan/genangan",t:"sel",o:["Tidak ada","Noda bekas rembesan","Rembes aktif","Genangan"]}],calc:p=>p.lendut&&p.bentang?`L/${Math.round(p.bentang*1000/p.lendut)} (batas umum L/240–L/360)`:""},
  PASIF:{n:"Proteksi pasif",f:[{k:"obj",l:"Objek",t:"sel",o:["Pintu tahan api","Kompartemen/dinding","Penghalang asap","Pelapis interior","Void/atrium","Shaft","Lainnya"]},{k:"ada",l:"Status",t:"sel",o:["Ada, sesuai","Ada, tidak sesuai","Tidak ada"]}]},
  ALATFIRE:{n:"Uji alat proteksi aktif",f:[{k:"alat",l:"Alat",t:"sel",o:["Heat detector","Smoke detector","Break glass/bel","MCFA/annunciator","APAR","Hidran box","Sprinkler head","Pompa kebakaran","Lainnya"]},{k:"jml",l:"Jumlah di titik/zona",t:"num"},{k:"asb",l:"Jumlah as-built",t:"num"},{k:"uji",l:"Hasil uji",t:"sel",o:["Berfungsi","Tidak berfungsi","Tidak diuji","Tidak terpasang"]},{k:"nilai",l:"Nilai (tekanan bar / tgl kedaluwarsa)",t:"text"}],calc:p=>p.jml&&p.asb?`Terpasang ${p.jml}/${p.asb} (${(p.jml/p.asb*100).toFixed(0)} %)`:""},
@@ -1443,6 +1446,64 @@ const VIEW_GUIDE={
  AKS:"<b>Aksesibilitas & kemudahan (Permen PUPR 14/2017):</b> A.5.8 pedestrian & guiding block, A.5.10 signage, B.2.17–B.2.22 evakuasi (tangga, pintu, bukaan, EXIT), E.1.1 pintu (lebar bersih ≥ 90 cm, arah bukaan), E.1.2 koridor (≥ 1,8 m), E.2.1 tangga 1–3, E.2.2 ramp drop zone −2,80 → lobby (≤ 1:12), E.3.1 toilet (difabel), E.3.2 parkir (SRP difabel). Ukur dengan meteran/laser, foto tiap sampel.",
  LNG:"<b>Tata bangunan & kawasan:</b> A.1.3 pemanfaatan ruang luar, A.2.7–A.2.10 KDH/sempadan/jarak batas/jarak antar bangunan (ukur + bandingkan Perda/KRK), A.3.6 pagar, A.5 peil, RTH, tanaman, perkerasan (jalan beton, parkir, lapangan upacara, tangga lapangan), sirkulasi, lansekap; C.4.4 septic/IPAL, C.5.2–C.5.3 TPS, C.6.2–C.6.3 drainase & peresapan. Titik di denah Kawasan/Site.<br><b>Landscape & RTH:</b> buka sakelar <i>Landscape &amp; RTH (kawasan)</i> di atas — daftar simak D.1–D.6 per zona (B/C/K/N/A), luasan & persentase area hijau, inventarisasi vegetasi bertitik di site plan, temuan berprioritas, kesimpulan, serta ekspor Excel & Word tersendiri."
 };
+
+/* ====== HAMMER TEST: R → fc' OTOMATIS ======
+   1) Bacaan R1–R12 → rata-rata; bacaan yang menyimpang > 6 dari rata-rata dibuang; bila > 2 dibuang,
+      set ditolak (ASTM C805). 2) R dikoreksi arah pukulan (rumus pabrikan Original Schmidt tipe N):
+      Rk = R + (−a0 + a1·R)·sin α ; α ≥ 0 (ke atas): a0 = 7,1, a1 = 0,08 ; α < 0 (ke bawah): a0 = 4,3, a1 = 0,043.
+   3) Rk → kuat tekan kubus 150 mm dengan kurva alat (Proceq B: 1,05·(0,01078R² + 0,904R − 12,91);
+      Proceq A: 1,05·(0,012516R² + 0,706R − 7,49); atau tabel kurva alat sendiri).
+   4) fc' silinder = faktor × kubus (bawaan 0,83; isi 1 bila kurva alat sudah silinder).
+   Pengaturan berlaku untuk seluruh proyek: S.hm = {kv, fk, tab, tsil}. */
+const HM_KURVA={B:{n:"Proceq B — beton umur 14–56 hari (kubus 150 mm)",f:R=>1.05*(0.01078*R*R+0.904*R-12.91)},
+ A:{n:"Proceq A — beton umur 7 hari (kubus 150 mm)",f:R=>1.05*(0.012516*R*R+0.706*R-7.49)},
+ T:{n:"Tabel kurva alat sendiri (dari grafik di badan alat)",f:null}};
+function HMS(){ if(typeof S==="undefined") return {kv:"B",fk:0.83,tab:"",tsil:0}; S.hm=S.hm||{}; const h=S.hm; if(!h.kv) h.kv="B"; if(h.fk==null||h.fk==="") h.fk=0.83; if(h.tab==null) h.tab=""; return h; }
+const hmNum=v=>{ const x=+String(v??"").replace(",","."); return isFinite(x)?x:NaN; };
+/* sudut dari pilihan formulir (mendukung label lama & baru) */
+function hmSudut(s){ s=String(s||""); if(!s||/horizontal/i.test(s)) return 0; const deg=/45/.test(s)?45:90; const atas=/atas|^\s*\+/.test(s); const bawah=/bawah|^\s*[−-]/.test(s); return atas?deg:bawah?-deg:0; }
+function hmKoreksi(R,a){ if(!a) return R; const s=Math.sin(a*Math.PI/180); return a>0?R+(-7.1+0.08*R)*s:R+(-4.3+0.043*R)*s; }
+function hmTabel(txt){ return String(txt||"").split(/[;\n]+/).map(x=>x.trim()).filter(Boolean).map(x=>x.split(/\s*[=:]\s*|\s+/).map(hmNum)).filter(a=>a.length>=2&&isFinite(a[0])&&isFinite(a[1])).map(a=>[a[0],a[1]]).sort((a,b)=>a[0]-b[0]); }
+function hmInterp(T,R){ if(T.length<2) return NaN; if(R<=T[0][0]) return T[0][1]+(R-T[0][0])*(T[1][1]-T[0][1])/(T[1][0]-T[0][0]); for(let i=1;i<T.length;i++) if(R<=T[i][0]) return T[i-1][1]+(R-T[i-1][0])*(T[i][1]-T[i-1][1])/(T[i][0]-T[i-1][0]); const n=T.length; return T[n-2][1]+(R-T[n-2][0])*(T[n-1][1]-T[n-2][1])/(T[n-1][0]-T[n-2][0]); }
+function hmHitung(v){ const r=[1,2,3,4,5,6,7,8,9,10,11,12].map(i=>hmNum(v["r"+i])).filter(x=>x>0); const o={n:r.length}; if(r.length<3) return o;
+ o.Rm=r.reduce((a,b)=>a+b,0)/r.length; const ok=r.filter(x=>Math.abs(x-o.Rm)<=6); o.nOk=ok.length; o.nBuang=r.length-ok.length; o.tolak=o.nBuang>2;
+ o.R=ok.length?ok.reduce((a,b)=>a+b,0)/ok.length:o.Rm; o.a=hmSudut(v.sudut); o.Rk=hmKoreksi(o.R,o.a);
+ const h=HMS(); const K=HM_KURVA[h.kv]||HM_KURVA.B; let fk=hmNum(h.fk); if(!(fk>0)) fk=0.83;
+ if(h.kv==="T"){ const T=hmTabel(h.tab); if(T.length<2){ o.err="isi tabel kurva alat (minimal 2 pasang R = MPa)"; return o; } const x=hmInterp(T,o.Rk); if(h.tsil){ o.fc=x; o.fcube=null; } else { o.fcube=x; o.fc=x*fk; } o.luar=o.Rk<T[0][0]||o.Rk>T[T.length-1][0]; }
+ else { o.fcube=K.f(o.Rk); o.fc=o.fcube*fk; o.luar=o.Rk<15||o.Rk>55; }
+ o.fk=fk; if(!(o.fc>0)){ o.fc=null; o.err="di luar rentang kurva"; } return o; }
+/* isi fc' otomatis kecuali diisi manual */
+function hmAuto(v){ const manual=v.fcMan||(v.fc!==""&&v.fc!=null&&!v.fcAuto); if(manual) return false; const o=hmHitung(v);
+ const nv=o.fc&&!o.tolak?(Math.round(o.fc*10)/10).toFixed(1):""; v.Rk=o.Rk!=null?(Math.round(o.Rk*10)/10).toFixed(1):""; if(String(v.fc??"")!==nv){ v.fc=nv; v.fcAuto=nv?1:0; return true; } return false; }
+const hmF=(x,d)=>x==null||!isFinite(x)?"–":Number(x).toLocaleString("id-ID",{minimumFractionDigits:d??1,maximumFractionDigits:d??1});
+function hmTeks(v){ const o=hmHitung(v); if(o.n<3) return ""; const h=HMS(); const man=v.fcMan||(v.fc&&!v.fcAuto);
+ let s=`${v.prep==="Tidak"?"⚠ permukaan belum disiapkan · ":""}n=${o.n}${o.n<10?" (< 10, tambah tumbukan)":""}, R rata ${hmF(o.Rm)}; buang > ±6: ${o.nBuang} → R = ${hmF(o.R)}`;
+ if(o.tolak) return s+` · ⚠ lebih dari 2 bacaan menyimpang — set DITOLAK, ulangi 10 tumbukan di titik baru`;
+ s+=o.a?` → R terkoreksi arah ${o.a>0?"ke atas":"ke bawah"} ${Math.abs(o.a)}° = ${hmF(o.Rk)}`:" (horizontal, tanpa koreksi)";
+ if(o.err) return s+` · ⚠ ${o.err}`;
+ s+=o.fcube!=null?` → kubus ${hmF(o.fcube)} MPa → fc' ≈ ${hmF(o.fc)} MPa (silinder, ×${String(o.fk).replace(".",",")})`:` → fc' ≈ ${hmF(o.fc)} MPa (kurva alat, silinder)`;
+ if(o.luar) s+=" · ⚠ R di luar rentang kurva (hasil ekstrapolasi)";
+ const fc=hmNum(v.fc), fcr=hmNum(v.fcr); if(man&&fc>0) s+=` · fc' diisi manual ${hmF(fc)} MPa`; if(fc>0&&fcr>0) s+=` · ${(fc/fcr*100).toFixed(0)} % fc' rencana ${hmF(fcr)} MPa${fc<0.85*fcr?" ⚠ < 85 %":""}`;
+ return s; }
+/* panel pengaturan kurva di formulir sampel hammer */
+function hmPanel(onChange){ const h=HMS(); const el=document.createElement("div"); el.id="pHm"; el.className="hmset";
+ el.innerHTML=`<details${h.kv==="T"&&!hmTabel(h.tab).length?" open":""}><summary>⚙ Kurva konversi R → fc' (berlaku untuk semua titik)</summary>
+  <label class="f">Kurva alat</label><select id="hmKv">${Object.entries(HM_KURVA).map(([k,x])=>`<option value="${k}"${h.kv===k?" selected":""}>${x.n}</option>`).join("")}</select>
+  <div id="hmTabW" style="display:${h.kv==="T"?"block":"none"}"><label class="f">Tabel kurva alat — pasangan R = MPa, pisahkan dengan titik koma</label><textarea id="hmTab" rows="2" placeholder="20=10; 25=15; 30=21; 35=27; 40=34; 45=41; 50=49">${esc(h.tab||"")}</textarea>
+   <label class="lapj1"><input type="checkbox" id="hmSil" ${h.tsil?"checked":""}> Nilai tabel sudah kuat tekan silinder (fc')</label></div>
+  <label class="f">Faktor kubus → silinder</label><input type="text" inputmode="decimal" id="hmFk" value="${String(h.fk).replace(".",",")}">
+  <p class="note" style="margin:4px 0 0">Koreksi arah pukulan otomatis dari isian "Arah pukulan". Kurva pabrikan berlaku untuk beton normal; pada beton tua yang terkarbonasi, hammer cenderung memberi nilai lebih tinggi. Untuk kesimpulan mutu, kalibrasikan dengan uji core bila memungkinkan.</p></details>`;
+ const ch=()=>{ h.kv=el.querySelector("#hmKv").value; h.tab=el.querySelector("#hmTab").value; h.tsil=el.querySelector("#hmSil").checked?1:0; h.fk=hmNum(el.querySelector("#hmFk").value)||0.83; el.querySelector("#hmTabW").style.display=h.kv==="T"?"block":"none"; save(); onChange&&onChange(); };
+ el.querySelectorAll("select,textarea,input").forEach(x=>x.addEventListener(x.tagName==="SELECT"||x.type==="checkbox"?"change":"input",ch)); return el; }
+
+/* hitung fc' otomatis untuk semua titik hammer yang belum diisi manual (saat muat, impor, dan sebelum ekspor) */
+/* teks "Hasil NDT" otomatis — hanya bila kosong atau sebelumnya otomatis (teks ketikan surveyor dipertahankan) */
+function hmNdtTeks(v){ const o=hmHitung(v); if(o.n<3) return ""; if(o.tolak) return `Hammer: set ditolak (${o.nBuang} bacaan menyimpang), perlu diulang`; const fc=hmNum(v.fc);
+ return `Hammer: R ${hmF(o.Rk)}${o.a?` (terkoreksi arah ${o.a>0?"ke atas":"ke bawah"})`:""}, fc' ≈ ${fc>0?hmF(fc):"–"} MPa${v.fcMan||(v.fc&&!v.fcAuto)?" (manual)":""}${hmNum(v.fcr)>0&&fc>0?` = ${(fc/hmNum(v.fcr)*100).toFixed(0)} % fc' rencana`:""}`; }
+function hmNdt(p){ if(!p||!p.v) return false; const t=hmNdtTeks(p.v); const auto=!p.ndt||p.ndtAuto; if(!auto||!t||p.ndt===t) return false; p.ndt=t; p.ndtAuto=1; return true; }
+function hmIsiSemua(){ if(typeof S==="undefined"||!S.pts) return 0; let n=0; Object.values(S.pts).forEach(a=>(a||[]).forEach(p=>{ const it=L2_BY[p.item]; if(it&&it.pm==="HAMMER"&&p.v){ if(hmAuto(p.v)) n++; if(hmNdt(p)) n++; } })); return n; }
+/* bila surveyor mengetik sendiri di "Hasil NDT", jangan ditimpa lagi; dikosongkan → otomatis */
+document.addEventListener("input",e=>{ if(e.target&&e.target.id==="po_ndt"&&typeof curP!=="undefined"&&curP) curP.ndtAuto=e.target.value?0:1; },true);
 
 
 /* ====== STATE ====== */
@@ -1520,7 +1581,7 @@ async function bootSimpan(){ const tirai=$("#tirai");
     if(lama){ S=migrate(lama); await simpanIDB(); try{ localStorage.removeItem(KEY); }catch(e){} } } }
   catch(e){ console.error(e); alert("Gagal memuat data dari IndexedDB: "+(e.message||e)); } }
  DB_READY=true; if(tirai) tirai.remove(); renderSemua(); tampilInfoSimpan(); }
-function renderSemua(){ $("#selBld").value=S.bld; fillUmum(); renderDok(); renderL2(); renderLevelSel(); renderMap(); lapInit(); if(typeof lskRender==="function") lskRender(); if($("#tab-rekap").classList.contains("on")) renderRekap(); }
+function renderSemua(){ if(typeof hmIsiSemua==="function"&&hmIsiSemua()) save(); $("#selBld").value=S.bld; fillUmum(); renderDok(); renderL2(); renderLevelSel(); renderMap(); lapInit(); if(typeof lskRender==="function") lskRender(); if($("#tab-rekap").classList.contains("on")) renderRekap(); }
 async function hapusSemua(){ try{ localStorage.removeItem(KEY); }catch(e){} if(DB_OK){ const tx=DB.transaction(["kv","foto"],"readwrite"); tx.objectStore("kv").clear(); tx.objectStore("foto").clear(); await txDone(tx); } }
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -1713,8 +1774,11 @@ function renderPFields(){ const it=L2_BY[curP.item]||{}; const pm=PMODES[it.pm]|
  const w=$("#pNdtF"); if(formMain(it)) $("#pOff").after(w); else $("#pFieldsHome").appendChild(w); w.style.display=pm.f.length?"block":"none";
  w.querySelector("h4").textContent=formMain(it)?"Isian alat / pengukuran — "+pm.n:"Isian rinci — "+pm.n;
  $("#pFields").innerHTML=pm.f.map(f=>`<div><label class="f">${f.l}${f.u?" ("+f.u+")":""}</label>${f.t==="sel"?`<select data-pk="${f.k}"><option value="">—</option>${f.o.map(o=>`<option ${curP.v[f.k]===o?"selected":""}>${o}</option>`).join("")}</select>`:`<input type="${f.t==="num"?"number":"text"}" ${f.t==="num"?'step="any" inputmode="decimal"':""} data-pk="${f.k}" value="${esc(curP.v[f.k]??"")}">`}</div>`).join("");
- const upd=()=>{ $$("#pFields [data-pk]").forEach(e=>curP.v[e.dataset.pk]=e.value); const c=pm.calc?pm.calc(curP.v):""; $("#pCalc").style.display=c?"block":"none"; $("#pCalc").innerHTML="<b>Hasil otomatis:</b> "+c; };
- $$("#pFields [data-pk]").forEach(e=>e.oninput=e.onchange=upd); upd();
+ const upd=()=>{ $$("#pFields [data-pk]").forEach(e=>curP.v[e.dataset.pk]=e.value); if(pm.auto&&pm.auto(curP.v)){ const fe=$('#pFields [data-pk="fc"]'); if(fe&&document.activeElement!==fe) fe.value=curP.v.fc; } if(it.pm==="HAMMER"){ const ne=$("#po_ndt"); if(ne&&!(ne.value&&!curP.ndtAuto)){ readPOff(); if(!curP.ndt) curP.ndtAuto=1; if(hmNdt(curP)) ne.value=curP.ndt; } } const c=pm.calc?pm.calc(curP.v):""; $("#pCalc").style.display=c?"block":"none"; $("#pCalc").innerHTML="<b>Hasil otomatis:</b> "+c; };
+ $$("#pFields [data-pk]").forEach(e=>e.oninput=e.onchange=upd);
+ const fcE=$('#pFields [data-pk="fc"]'); if(fcE&&pm.auto) fcE.oninput=fcE.onchange=()=>{ curP.v.fcMan=fcE.value!==""?1:0; curP.v.fcAuto=0; upd(); };
+ const hmOld=$("#pHm"); if(hmOld) hmOld.remove(); if(it.pm==="HAMMER") $("#pCalc").after(hmPanel(()=>{ if(!curP.v.fcMan) curP.v.fc=""; curP.v.fcAuto=1; upd(); }));
+ upd();
  const js=$("#tJenis"); js.innerHTML='<option value="">—</option>'; (DIS[it.d||"ARS"]||DIS.ARS).j.forEach(j=>js.add(new Option(j,j))); js.value=curP.jenis??""; }
 function toggleTemuan(){ $("#temuanSec").style.display=(curP.kat>0||curP.ses==="Tidak sesuai")?"block":"none"; }
 function renderPPhotos(){ $("#pPhotos").innerHTML=curP.photos.map((p,i)=>`<div><img src="${p}"><button data-i="${i}">×</button></div>`).join(""); $$("#pPhotos button").forEach(b=>b.onclick=()=>{curP.photos.splice(+b.dataset.i,1); save(); renderPPhotos();}); }
@@ -1765,16 +1829,16 @@ function colL(n){let s="";n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(
       7 kotak judul kolom 8 kotak nama sampel (tebal) 9 judul 11pt 10 teks lipat tanpa bingkai 11 teks kecil abu
       12 kotak judul kolom berlatar abu 13 keterangan kecil di dalam bingkai */
 /* media: [{data:Uint8Array, ext:"jpeg"|"png"}]; sheet.images: [{m:indeks media, col, row (0-based), dx, dy, w, h (px)}] */
-function buildXlsx(sheets,media){
+function buildXlsx(sheets,media,opt){
  media=media||[]; const files=[]; const EMU=9525; let drawN=0; const drawOf=sheets.map(sh=>sh.images&&sh.images.length?++drawN:0);
  files.push({name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}${drawOf.filter(Boolean).map(d=>`<Override PartName="/xl/drawings/drawing${d}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>`).join("")}</Types>`});
  files.push({name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`});
- files.push({name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xesc(s.name.slice(0,31))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`});
+ files.push({name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xesc(s.name.slice(0,31))}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets>${opt&&opt.names&&opt.names.length?`<definedNames>${opt.names.map(n=>`<definedName name="${xesc(n.n)}">${xesc(n.ref)}</definedName>`).join("")}</definedNames>`:""}<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`});
  files.push({name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`});
- files.push({name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><sz val="9"/><color rgb="FF555555"/><name val="Arial"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="14"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyNumberFormat="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs></styleSheet>`});
+ files.push({name:"xl/styles.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="2"><numFmt numFmtId="164" formatCode="0.0"/><numFmt numFmtId="165" formatCode="0.000"/></numFmts><fonts count="5"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><sz val="9"/><color rgb="FF555555"/><name val="Arial"/></font></fonts><fills count="6"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F4E79"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCE6F1"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD9D9D9"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="21"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="2" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyNumberFormat="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="4" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf><xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top" wrapText="1"/></xf><xf numFmtId="2" fontId="0" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf><xf numFmtId="9" fontId="0" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf><xf numFmtId="0" fontId="1" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="1" fontId="0" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf></cellXfs></styleSheet>`});
  sheets.forEach((sh,i)=>{
   const colsX=sh.cols?`<cols>${sh.cols.map((w,j)=>`<col min="${j+1}" max="${j+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`:"";
-  const rowsX=sh.rows.map((r,ri)=>`<row r="${ri+1}"${sh.heights&&sh.heights[ri]?` ht="${sh.heights[ri]}" customHeight="1"`:""}>${r.map((c,ci)=>{ if(c==null||c==="") return ""; const s=(typeof c==="object"&&c!==null&&"v" in c)?c.s||0:0; const v=(typeof c==="object"&&c!==null&&"v" in c)?c.v:c; const ref=colL(ci)+(ri+1); if((v==null||v==="")&&s) return `<c r="${ref}" s="${s}"/>`; /* sel kosong bergaya: bingkai tetap tergambar (termasuk dalam sel gabungan) */ if(typeof v==="number"&&isFinite(v)) return `<c r="${ref}" s="${s===3?6:s}"><v>${v}</v></c>`; return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xesc(v)}</t></is></c>`; }).join("")}</row>`).join("");
+  const rowsX=sh.rows.map((r,ri)=>`<row r="${ri+1}"${sh.heights&&sh.heights[ri]?` ht="${sh.heights[ri]}" customHeight="1"`:""}>${r.map((c,ci)=>{ if(c==null||c==="") return ""; const s=(typeof c==="object"&&c!==null&&"v" in c)?c.s||0:0; const v=(typeof c==="object"&&c!==null&&"v" in c)?c.v:c; const ref=colL(ci)+(ri+1); if(typeof c==="object"&&c!==null&&c.f){ const cv=c.v; const isS=typeof cv==="string"&&cv!==""; return `<c r="${ref}" s="${s}"${isS?' t="str"':""}><f>${xesc(String(c.f).replace(/^=/,""))}</f>${cv!=null&&cv!==""&&(isS||isFinite(cv))?`<v>${isS?xesc(cv):cv}</v>`:""}</c>`; } if((v==null||v==="")&&s) return `<c r="${ref}" s="${s}"/>`; /* sel kosong bergaya: bingkai tetap tergambar (termasuk dalam sel gabungan) */ if(typeof v==="number"&&isFinite(v)) return `<c r="${ref}" s="${s===3?6:s}"><v>${v}</v></c>`; return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xesc(v)}</t></is></c>`; }).join("")}</row>`).join("");
   const mergX=sh.merges&&sh.merges.length?`<mergeCells count="${sh.merges.length}">${sh.merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`:"";
   files.push({name:`xl/worksheets/sheet${i+1}.xml`,data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${sh.fit?'<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>':""}<sheetViews><sheetView workbookViewId="0"${sh.noGrid?' showGridLines="0"':""}${sh.freeze?` ><pane ySplit="${sh.freeze}" topLeftCell="A${sh.freeze+1}" activePane="bottomLeft" state="frozen"/></sheetView`:"/"}></sheetViews>${colsX}<sheetData>${rowsX}</sheetData>${mergX}<pageMargins left="0.5" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="${sh.portrait?"portrait":"landscape"}" paperSize="9"${sh.fit?' fitToWidth="1" fitToHeight="0"':""}/>${drawOf[i]?'<drawing r:id="rIdD1"/>':""}</worksheet>`});
   if(drawOf[i]){ const d=drawOf[i]; const used=[...new Set(sh.images.map(g=>g.m))];
@@ -2007,7 +2071,7 @@ function buildSimakWorkbook(fotoList){ const off=L2_ITEMS.filter(it=>!it.tim), t
  sheets.push({name:"TITIK (data)",cols:th.map(()=>14),rows:tr,freeze:1});
  return sheets; }
 function updXlsxLabel(){ const b=$("#btnXlsx"); if(b&&!b.disabled) b.textContent="📊 Ekspor Excel daftar simak + foto — "+bName(S.bld); }
-$("#btnXlsx").onclick=async()=>{ const b=$("#btnXlsx"); if(b.disabled) return; b.disabled=true;
+$("#btnXlsx").onclick=async()=>{ const b=$("#btnXlsx"); if(b.disabled) return; b.disabled=true; if(typeof hmIsiSemua==="function"&&hmIsiSemua()) save();
  try{ const list=sxPhotoList(); SXM=await sxPrepMedia(list,(i,n)=>{ b.textContent=`Menyiapkan foto ${i}/${n}…`; });
   b.textContent="Menyusun Excel…"; await new Promise(r=>setTimeout(r,30));
   const u8=buildXlsx(buildSimakWorkbook(list),SXM.media); dlBin(`DAFTAR_SIMAK_${S.bld}_${S.dev}_${stampF()}.xlsx`,u8,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); }
@@ -2046,6 +2110,317 @@ function sxRekapSheet(){ const u=umumObj(); const I=indikasi(S.bld); const R={na
  put(["ID","Lokasi","","Butir","","Temuan","","Kondisi","Kesesuaian","Prioritas","Rekomendasi"].map(v=>({v,s:2})),18); { const r=R.rows.length; R.merges.push(`B${r}:C${r}`,`D${r}:E${r}`,`F${r}:G${r}`); }
  ptsObj(S.bld).filter(p=>p.kat>=3||p.ses==="Tidak sesuai"||p.prio==="Segera").sort((a,b)=>b.kat-a.kat).forEach(p=>{ put([p.id,`${p.lvl} · ${smpName(p)}${p.grid?" · "+p.grid:""}`,"",p.item+" "+((L2_BY[p.item]||{}).n||""),"",[p.jenis,p.jenisx,p.sesKet].filter(Boolean).join("; "),"",KAT[p.kat],p.ses||"",p.prio,p.rek].map(v=>({v,s:3}))); const r=R.rows.length; R.merges.push(`B${r}:C${r}`,`D${r}:E${r}`,`F${r}:G${r}`); });
  return R; }
+
+/* ====== EKSPOR EXCEL LEMBAR PENGUJIAN ALAT + RUMUS (v29) ======
+   Satu berkas untuk seluruh proyek (semua gedung). Isi:
+     PETUNJUK  — cara pakai + daftar seluruh rumus (rumus Excel baris pertama + penjelasan + acuan)
+     PARAMETER — semua batas/koefisien sebagai nama rentang PRM_… (ubah di sini → seluruh lembar ikut)
+     01 HAMMER … — satu lembar per formulir alat: identitas sampel, data lapangan (sel putih, boleh
+                   dikoreksi), hasil hitungan (sel abu-abu = RUMUS EXCEL HIDUP), teks hasil aplikasi
+                   untuk cek silang, baris cadangan ber-rumus, dan ringkasan statistik.
+   Setiap rumus punya padanan JS (j) agar nilai tersimpan (cache) sudah benar walau berkas dibuka di
+   penampil yang tidak menghitung ulang; Excel tetap menghitung ulang saat dibuka (fullCalcOnLoad). */
+const UJ_ID=[["No",5],["ID titik",10],["Gedung",16],["Lantai",12],["Ruang / lokasi",16],["Grid",8],["Butir",24],["Nama sampel",18]];
+const ujIsN=x=>typeof x==="number"&&isFinite(x), ujN=x=>ujIsN(x)?x:0;
+/* ---- parameter (nama tanpa awalan PRM_) ---- */
+function ujParam(){ const h=typeof HMS==="function"?HMS():{kv:"B",fk:0.83,tab:"",tsil:0}; const fk=hmNum(h.fk);
+ const G=(g,a)=>({g,a});
+ return [
+ G("Hammer test (ASTM C805 + kurva pabrikan Original Schmidt tipe N)",[
+  ["HM_KURVA",["A","B","T"].includes(h.kv)?h.kv:"B","—","Kurva konversi: B = Proceq B (beton 14–56 hari), A = Proceq A (7 hari), T = tabel kurva alat di bawah"],
+  ["HM_FK",fk>0?fk:0.83,"—","Faktor kubus 150 mm → silinder (fc')"],
+  ["HM_TSIL",h.tsil?1:0,"0/1","1 = nilai tabel kurva alat sudah kuat tekan silinder (tidak dikali HM_FK)"],
+  ["HM_DEV",6,"—","Bacaan yang menyimpang lebih dari ± nilai ini dari rata-rata dibuang (ASTM C805)"],
+  ["HM_MAXBUANG",2,"bacaan","Bila bacaan dibuang lebih dari nilai ini → set DITOLAK, ulangi di titik baru"],
+  ["HM_A0A",7.1,"—","Koreksi arah ke ATAS (α > 0): Rk = R + (−a0 + a1·R)·sin α — a0"],
+  ["HM_A1A",0.08,"—","Koreksi arah ke ATAS — a1"],
+  ["HM_A0B",4.3,"—","Koreksi arah ke BAWAH (α < 0) — a0"],
+  ["HM_A1B",0.043,"—","Koreksi arah ke BAWAH — a1"],
+  ["HB_K",1.05,"—","Kurva B: f = k·(c2·R² + c1·R + c0) — k"],["HB_C2",0.01078,"—","Kurva B — c2"],["HB_C1",0.904,"—","Kurva B — c1"],["HB_C0",-12.91,"MPa","Kurva B — c0"],
+  ["HA_K",1.05,"—","Kurva A — k"],["HA_C2",0.012516,"—","Kurva A — c2"],["HA_C1",0.706,"—","Kurva A — c1"],["HA_C0",-7.49,"MPa","Kurva A — c0"],
+  ["HM_RMIN",15,"—","Batas bawah rentang R kurva pabrikan (di luar = ekstrapolasi)"],["HM_RMAX",55,"—","Batas atas rentang R kurva pabrikan"],
+  ["HM_RASIO",0.85,"—","fc' hasil < rasio × fc' rencana → perlu evaluasi lanjut / uji core"]]),
+ G("Struktur — rebar scan, retak, lendutan pelat",[
+  ["RB_JARAK",1.1,"×","Jarak sengkang terukur ≤ faktor × jarak as-built"],["RB_COVER",0.9,"×","Selimut terukur ≥ faktor × selimut rencana"],
+  ["CR_RINGAN",0.75,"mm","Retak < nilai ini = ringan"],["CR_SEDANG",6,"mm","Retak ≤ nilai ini = sedang; lebih = berat/struktural"],
+  ["PELAT_L1",240,"L/…","Batas lendutan longgar L/240 (SNI 2847:2019 Tabel 24.2.2)"],["PELAT_L2",360,"L/…","Batas lendutan ketat L/360"]]),
+ G("Kelistrikan",[
+  ["VLN_MIN",198,"V","Tegangan fasa–netral minimum (220 V − 10 %)"],["VLN_MAX",242,"V","Tegangan fasa–netral maksimum (220 V + 10 %)"],
+  ["VLL_MIN",342,"V","Tegangan fasa–fasa minimum (380 V − 10 %)"],["VLL_MAX",418,"V","Tegangan fasa–fasa maksimum (380 V + 10 %)"],
+  ["UNBAL_MAX",10,"%","Ketidakseimbangan arus maksimum = maks |Ii − Ī| / Ī × 100"],["TTERM_MAX",70,"°C","Suhu terminal maksimum (termometer IR)"],
+  ["ISO_BATAS",1,"MΩ","Tahanan isolasi minimum bila kolom batas di formulir kosong"],["OHM_BATAS",5,"Ω","Tahanan pembumian maksimum bila kolom batas di formulir kosong"]]),
+ G("Kenyamanan & utilitas",[
+  ["LUX_MIN",300,"lux","Iluminansi minimum ruang kerja (batas bawaan aplikasi)"],["TA_MIN",24,"°C","Suhu udara nyaman — bawah"],["TA_MAX",27,"°C","Suhu udara nyaman — atas"],
+  ["RH_MIN",40,"%","Kelembapan relatif — bawah"],["RH_MAX",60,"%","Kelembapan relatif — atas"],["DB_MAX",55,"dB(A)","Kebisingan maksimum"],["CO2_MAX",1000,"ppm","Konsentrasi CO₂ maksimum"],
+  ["V_MAX",0.25,"m/s","Kecepatan udara maksimum (draft)"],["GLOBE_D",0.15,"m","Diameter bola globe thermometer (standar 150 mm)"],["GLOBE_EPS",0.95,"—","Emisivitas bola globe"],
+  ["WS_INT",10,"menit","Interval log weather station maksimum"],["DEBIT_MIN",6,"L/mnt","Debit kran minimum"]]),
+ G("Arsitektur & kemudahan",[
+  ["PINTU_MIN",90,"cm","Lebar bersih pintu minimum"],["KOR_MIN",1.8,"m","Lebar koridor/jalur — memenuhi"],["KOR_MIN2",1.2,"m","Lebar koridor/jalur — minimum (cek fungsi)"],
+  ["TG_LEBAR",120,"cm","Lebar tangga minimum"],["TG_ANTREDE",28,"cm","Antrede (injakan) minimum"],["TG_OPTREDE",18,"cm","Optrede (tanjakan) maksimum"],
+  ["TG_2OA_MIN",60,"cm","2·optrede + antrede — ideal bawah"],["TG_2OA_MAX",65,"cm","2·optrede + antrede — ideal atas"],
+  ["RAMP_MIN",12,"1:n","Kemiringan ramp memenuhi bila 1:n dengan n ≥ nilai ini"],["RAMP_MIN2",10,"1:n","Batas bawah yang masih perlu dicek ketentuannya"],
+  ["PKR_PER",100,"SRP","1 SRP difabel per kelipatan SRP ini (minimal 1)"]])]; }
+const UJ_TAB=20; /* baris tabel kurva alat */
+/* ---- fungsi bantu rumus ---- */
+const UJ_NZ=x=>`UPPER(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(${x}," ",""),"-",""),".",""),"/",""),"Ø",""),"ø",""))`;
+const ujNz=s=>[" ","-",".","/","Ø","ø"].reduce((a,c)=>a.split(c).join(""),String(s||"")).toUpperCase();
+const UJ_K=`MAX(0,MIN(PRM_TAB_N-2,IFERROR(MATCH([Rk],PRM_TAB_R,1),1)-1))`;
+const UJ_INTERP=`FORECAST([Rk],OFFSET(@M,${UJ_K},0,2,1),OFFSET(@R,${UJ_K},0,2,1))`;
+function ujInterpJs(T,R){ return hmInterp(T,R); }
+const ujMin3=a=>{ const x=a.filter(v=>ujIsN(v)&&v>0); return x.length?Math.min(...x):""; };
+/* ---- spesifikasi per formulir ----
+   in: kolom data (default = semua isian formulir); out: {k,h,u,f(rumus Excel, {isian} [hasil]),j(v,o,P),st,w,d(penjelasan)} */
+const UJ_SPEC=[
+ {k:"HAMMER",g:"Struktur",acu:"ASTM C805 (prosedur, buang bacaan > ±6, tolak bila > 2 dibuang); koreksi arah & kurva Proceq (Original Schmidt tipe N); kubus → silinder × 0,83. Kalibrasi dengan core bila memungkinkan.",
+  in:["elem","dim","asbdim","zona","prep","bebas","sudut",{k:"alfa",h:"α arah pukulan",u:"°",num:1,get:v=>hmSudut(v.sudut)},"r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11","r12",
+      {k:"fcm",h:"fc' manual (opsional)",u:"MPa",num:1,get:v=>(v.fcMan||(v.fc!==""&&v.fc!=null&&!v.fcAuto))?hmNum(v.fc):""},"fcr","retak","rusak"],
+  out:[
+  {k:"n",h:"Jumlah bacaan n",f:`COUNTIF({r1}:{r12},">0")`,j:v=>RS(v).length,st:20,d:"Banyak bacaan R yang diisi (> 0). Minimal 3 agar dihitung; ASTM C805 menganjurkan 10."},
+  {k:"Rm",h:"R rata-rata awal",f:`IF([n]<3,"",AVERAGEIF({r1}:{r12},">0"))`,j:(v,o)=>o.n<3?"":avg(RS(v)),st:14,d:"Rata-rata seluruh bacaan."},
+  {k:"nb",h:"Bacaan dibuang",f:`IF([n]<3,"",SUMPRODUCT(({r1}:{r12}>0)*(ABS({r1}:{r12}-[Rm])>PRM_HM_DEV)))`,j:(v,o,P)=>o.n<3?"":RS(v).filter(x=>Math.abs(x-o.Rm)>P.HM_DEV).length,st:20,d:"Jumlah bacaan yang menyimpang lebih dari ± HM_DEV dari R rata-rata awal."},
+  {k:"stat",h:"Status set bacaan",f:`IF([n]<3,IF([n]=0,"","n < 3 — tambah bacaan"),IF([nb]>PRM_HM_MAXBUANG,"DITOLAK — ulangi di titik baru",IF([n]<10,"OK (n < 10)","OK")))`,
+   j:(v,o,P)=>o.n<3?(o.n===0?"":"n < 3 — tambah bacaan"):o.nb>P.HM_MAXBUANG?"DITOLAK — ulangi di titik baru":o.n<10?"OK (n < 10)":"OK",st:15,w:16,d:"Set ditolak bila bacaan dibuang > HM_MAXBUANG (ASTM C805)."},
+  {k:"R",h:"R valid (rata-rata setelah dibuang)",f:`IF([n]<3,"",IF([n]-[nb]=0,[Rm],AVERAGEIFS({r1}:{r12},{r1}:{r12},">0",{r1}:{r12},">="&([Rm]-PRM_HM_DEV),{r1}:{r12},"<="&([Rm]+PRM_HM_DEV))))`,
+   j:(v,o,P)=>{ if(o.n<3) return ""; const ok=RS(v).filter(x=>Math.abs(x-o.Rm)<=P.HM_DEV); return ok.length?avg(ok):o.Rm; },st:14,d:"Rata-rata bacaan yang tersisa (|R − R rata| ≤ HM_DEV)."},
+  {k:"Rk",h:"Rk terkoreksi arah",f:`IF([R]="","",IF(N({alfa})=0,[R],IF({alfa}>0,[R]+(-PRM_HM_A0A+PRM_HM_A1A*[R])*SIN(RADIANS({alfa})),[R]+(-PRM_HM_A0B+PRM_HM_A1B*[R])*SIN(RADIANS({alfa})))))`,
+   j:(v,o,P)=>{ if(o.R==="") return ""; const a=ujN(v.alfa); if(!a) return o.R; const s=Math.sin(a*Math.PI/180); return a>0?o.R+(-P.HM_A0A+P.HM_A1A*o.R)*s:o.R+(-P.HM_A0B+P.HM_A1B*o.R)*s; },st:14,
+   d:"Rk = R + (−a0 + a1·R)·sin α. α > 0 (ke atas): a0 = HM_A0A, a1 = HM_A1A; α < 0 (ke bawah): a0 = HM_A0B, a1 = HM_A1B; α = 0 tanpa koreksi."},
+  {k:"fk",h:"Hasil kurva alat (kubus 150 mm)",u:"MPa",f:`IF([Rk]="","",IFERROR(IF(PRM_HM_KURVA="T",${UJ_INTERP},IF(PRM_HM_KURVA="A",PRM_HA_K*(PRM_HA_C2*[Rk]^2+PRM_HA_C1*[Rk]+PRM_HA_C0),PRM_HB_K*(PRM_HB_C2*[Rk]^2+PRM_HB_C1*[Rk]+PRM_HB_C0))),""))`,
+   j:(v,o,P)=>{ if(o.Rk==="") return ""; if(P.HM_KURVA==="T"){ const x=ujInterpJs(P.TAB,o.Rk); return isFinite(x)?x:""; } const c=P.HM_KURVA==="A"?["HA_K","HA_C2","HA_C1","HA_C0"]:["HB_K","HB_C2","HB_C1","HB_C0"]; return P[c[0]]*(P[c[1]]*o.Rk*o.Rk+P[c[2]]*o.Rk+P[c[3]]); },st:14,
+   d:"Kurva B/A: f = k·(c2·Rk² + c1·Rk + c0). Kurva T: interpolasi linear tabel kurva alat (ekstrapolasi di luar tabel). Bila HM_TSIL = 1, nilai tabel sudah silinder."},
+  {k:"fcE",h:"fc' estimasi (silinder)",u:"MPa",f:`IF(OR([fk]="",[nb]>PRM_HM_MAXBUANG),"",IF(AND(PRM_HM_KURVA="T",PRM_HM_TSIL=1),[fk],[fk]*PRM_HM_FK))`,
+   j:(v,o,P)=>o.fk===""||o.nb>P.HM_MAXBUANG?"":(P.HM_KURVA==="T"&&P.HM_TSIL===1?o.fk:o.fk*P.HM_FK),st:14,d:"fc' = hasil kurva × HM_FK (kosong bila set ditolak)."},
+  {k:"luar",h:"Rentang kurva",f:`IF([Rk]="","",IF(PRM_HM_KURVA="T",IF(OR([Rk]<MIN(PRM_TAB_R),[Rk]>MAX(PRM_TAB_R)),"ekstrapolasi","dalam rentang"),IF(OR([Rk]<PRM_HM_RMIN,[Rk]>PRM_HM_RMAX),"ekstrapolasi","dalam rentang")))`,
+   j:(v,o,P)=>{ if(o.Rk==="") return ""; if(P.HM_KURVA==="T"){ const r=P.TAB.map(t=>t[0]); return r.length&&(o.Rk<Math.min(...r)||o.Rk>Math.max(...r))?"ekstrapolasi":"dalam rentang"; } return o.Rk<P.HM_RMIN||o.Rk>P.HM_RMAX?"ekstrapolasi":"dalam rentang"; },st:15,w:12,d:"Peringatan bila Rk di luar rentang kurva."},
+  {k:"fcU",h:"fc' dipakai",u:"MPa",f:`IF(N({fcm})>0,{fcm},IF(N([fcE])>0,[fcE],""))`,j:(v,o)=>ujN(v.fcm)>0?v.fcm:ujN(o.fcE)>0?o.fcE:"",st:14,d:"fc' manual bila diisi, selain itu fc' estimasi (bila > 0)."},
+  {k:"src",h:"Sumber fc'",f:`IF([fcU]="","",IF(N({fcm})>0,"manual","otomatis"))`,j:(v,o)=>o.fcU===""?"":ujN(v.fcm)>0?"manual":"otomatis",st:15,w:9,d:"Penanda asal fc' dipakai."},
+  {k:"pct",h:"% fc' rencana",f:`IF(AND(N([fcU])>0,N({fcr})>0),[fcU]/{fcr},"")`,j:(v,o)=>ujN(o.fcU)>0&&ujN(v.fcr)>0?o.fcU/v.fcr:"",st:18,d:"fc' dipakai ÷ fc' rencana."},
+  {k:"kes",h:"Kesimpulan mutu",f:`IF([pct]="","",IF([fcU]<PRM_HM_RASIO*{fcr},"KURANG — < "&ROUND(PRM_HM_RASIO*100,0)&" % fc' rencana, evaluasi/core","MEMENUHI — ≥ "&ROUND(PRM_HM_RASIO*100,0)&" % fc' rencana"))`,
+   j:(v,o,P)=>o.pct===""?"":o.fcU<P.HM_RASIO*v.fcr?`KURANG — < ${Math.round(P.HM_RASIO*100)} % fc' rencana, evaluasi/core`:`MEMENUHI — ≥ ${Math.round(P.HM_RASIO*100)} % fc' rencana`,st:15,w:22,d:"Dibandingkan dengan HM_RASIO × fc' rencana."}],
+  sum:["Rk","fcU"],cnt:[["stat","DITOLAK*","Set bacaan ditolak"],["kes","KURANG*","Titik di bawah rasio fc' rencana"]]},
+ {k:"REBAR",g:"Struktur",acu:"Kriteria aplikasi: jarak sengkang ≤ 1,1 × as-built; selimut ≥ 0,9 × rencana; konfigurasi tulangan utama dibandingkan teks (tanpa spasi/tanda).",
+  out:[
+  {k:"bj",h:"Batas jarak sengkang",u:"mm",f:`IF(N({jarakr})>0,{jarakr}*PRM_RB_JARAK,"")`,j:(v,o,P)=>ujN(v.jarakr)>0?v.jarakr*P.RB_JARAK:"",st:14,d:"Jarak as-built × RB_JARAK."},
+  {k:"sj",h:"Status jarak sengkang",f:`IF(AND(N({jarak})>0,N({jarakr})>0),IF({jarak}<=[bj],"jarak sengkang ✓","jarak sengkang > as-built ✗"),"")`,j:(v,o)=>ujN(v.jarak)>0&&ujN(v.jarakr)>0?(v.jarak<=o.bj?"jarak sengkang ✓":"jarak sengkang > as-built ✗"):"",st:15,w:16},
+  {k:"bc",h:"Batas selimut",u:"mm",f:`IF(N({coverr})>0,{coverr}*PRM_RB_COVER,"")`,j:(v,o,P)=>ujN(v.coverr)>0?v.coverr*P.RB_COVER:"",st:14,d:"Selimut rencana × RB_COVER."},
+  {k:"sc",h:"Status selimut",f:`IF(AND(N({cover})>0,N({coverr})>0),IF({cover}>=[bc],"selimut ✓","selimut < rencana ✗"),"")`,j:(v,o)=>ujN(v.cover)>0&&ujN(v.coverr)>0?(v.cover>=o.bc?"selimut ✓":"selimut < rencana ✗"):"",st:15,w:14},
+  {k:"tu",h:"Tulangan utama",f:`IF(OR({nutama}="",{nutamar}=""),"",IF(EXACT(${UJ_NZ("{nutama}")},${UJ_NZ("{nutamar}")}),"sesuai as-built","BERBEDA dari as-built"))`,
+   j:v=>!v.nutama||!v.nutamar?"":ujNz(v.nutama)===ujNz(v.nutamar)?"sesuai as-built":"BERBEDA dari as-built",st:15,w:14,d:"Teks aktual & as-built dibandingkan setelah spasi, '-', '.', '/', 'Ø' dihapus."}],
+  sum:["jarak","cover"],cnt:[["sj","*✗","Jarak sengkang tidak memenuhi"],["sc","*✗","Selimut tidak memenuhi"],["tu","BERBEDA*","Tulangan utama berbeda"]]},
+ {k:"CRACK",g:"Struktur",acu:"Klasifikasi lebar retak kriteria aplikasi: < 0,75 mm ringan; 0,75–6 mm sedang; > 6 mm berat/struktural.",
+  out:[{k:"kl",h:"Klasifikasi retak",f:`IF(ISNUMBER({lebar}),IF({lebar}<PRM_CR_RINGAN,"ringan (< "&PRM_CR_RINGAN&" mm)",IF({lebar}<=PRM_CR_SEDANG,"sedang — perlu evaluasi","BERAT/struktural")),"")`,
+   j:(v,o,P)=>ujIsN(v.lebar)?(v.lebar<P.CR_RINGAN?`ringan (< ${P.CR_RINGAN} mm)`:v.lebar<=P.CR_SEDANG?"sedang — perlu evaluasi":"BERAT/struktural"):"",st:15,w:20}],
+  sum:["lebar","panjang","luas"],cnt:[["kl","BERAT*","Retak berat/struktural"]]},
+ {k:"PELAT",g:"Struktur",acu:"Batas lendutan umum L/240–L/360 (SNI 2847:2019 Tabel 24.2.2).",
+  out:[{k:"ra",h:"Rasio L/δ (L/…)",f:`IF(AND(N({lendut})>0,N({bentang})>0),{bentang}*1000/{lendut},"")`,j:v=>ujN(v.lendut)>0&&ujN(v.bentang)>0?v.bentang*1000/v.lendut:"",st:20,d:"Bentang (m) × 1000 ÷ lendutan (mm)."},
+  {k:"b1",h:"Lendutan izin L/240",u:"mm",f:`IF(N({bentang})>0,{bentang}*1000/PRM_PELAT_L1,"")`,j:(v,o,P)=>ujN(v.bentang)>0?v.bentang*1000/P.PELAT_L1:"",st:17},
+  {k:"b2",h:"Lendutan izin L/360",u:"mm",f:`IF(N({bentang})>0,{bentang}*1000/PRM_PELAT_L2,"")`,j:(v,o,P)=>ujN(v.bentang)>0?v.bentang*1000/P.PELAT_L2:"",st:17},
+  {k:"st",h:"Status lendutan",f:`IF([ra]="","",IF([ra]>=PRM_PELAT_L2,"≤ L/"&PRM_PELAT_L2&" ✓",IF([ra]>=PRM_PELAT_L1,"antara L/"&PRM_PELAT_L1&"–L/"&PRM_PELAT_L2&" (cek fungsi)","> L/"&PRM_PELAT_L1&" ✗")))`,
+   j:(v,o,P)=>o.ra===""?"":o.ra>=P.PELAT_L2?`≤ L/${P.PELAT_L2} ✓`:o.ra>=P.PELAT_L1?`antara L/${P.PELAT_L1}–L/${P.PELAT_L2} (cek fungsi)`:`> L/${P.PELAT_L1} ✗`,st:15,w:18}],
+  sum:["lendut","retak"]},
+ {k:"K3",g:"Kelistrikan",acu:"Pengujian listrik hanya dilanjutkan bila sumber diputus, LOTO terpasang, dan tegangan nol terverifikasi.",
+  out:[{k:"st",h:"Status keselamatan",f:`IF(OR({sumber}="Tidak",{loto}="Tidak",{nol}="Tidak"),"⚠ BELUM AMAN — jangan lanjut pengujian",IF(AND({sumber}<>"",{loto}<>"",{nol}<>""),"Aman untuk dikerjakan",""))`,
+   j:v=>(v.sumber==="Tidak"||v.loto==="Tidak"||v.nol==="Tidak")?"⚠ BELUM AMAN — jangan lanjut pengujian":(v.sumber&&v.loto&&v.nol)?"Aman untuk dikerjakan":"",st:15,w:24}],cnt:[["st","⚠*","Belum aman"]]},
+ {k:"PANEL",g:"Kelistrikan",acu:"Batas bawaan aplikasi: V L–N 220 V ±10 %, V L–L 380 V ±10 %, ketidakseimbangan arus ≤ 10 %, suhu terminal ≤ 70 °C.",
+  out:[{k:"vmin",h:"V L–N terendah",u:"V",f:`IF(COUNTIF({v1}:{v3},">0")=0,"",SMALL({v1}:{v3},COUNTIF({v1}:{v3},"<=0")+1))`,j:v=>ujMin3([v.v1,v.v2,v.v3]),st:14},
+  {k:"vmax",h:"V L–N tertinggi",u:"V",f:`IF(COUNTIF({v1}:{v3},">0")=0,"",MAX({v1}:{v3}))`,j:v=>{ const x=[v.v1,v.v2,v.v3].filter(a=>ujIsN(a)&&a>0); return x.length?Math.max(...x):""; },st:14},
+  {k:"svn",h:"Status V L–N",f:`IF(COUNTIF({v1}:{v3},">0")=0,"",IF(COUNTIFS({v1}:{v3},">0",{v1}:{v3},"<"&PRM_VLN_MIN)+COUNTIF({v1}:{v3},">"&PRM_VLN_MAX)=0,"V L–N ✓","V L–N di luar 220 V ±10 %"))`,
+   j:(v,o,P)=>{ const x=[v.v1,v.v2,v.v3].filter(a=>ujIsN(a)&&a>0); return !x.length?"":x.some(a=>a<P.VLN_MIN||a>P.VLN_MAX)?"V L–N di luar 220 V ±10 %":"V L–N ✓"; },st:15,w:16},
+  {k:"svl",h:"Status V L–L",f:`IF(ISNUMBER({vll}),IF(AND({vll}>=PRM_VLL_MIN,{vll}<=PRM_VLL_MAX),"V L–L ✓","V L–L di luar 380 V ±10 %"),"")`,j:(v,o,P)=>ujIsN(v.vll)?(v.vll>=P.VLL_MIN&&v.vll<=P.VLL_MAX?"V L–L ✓":"V L–L di luar 380 V ±10 %"):"",st:15,w:16},
+  {k:"ir",h:"I rata-rata",u:"A",f:`IF(COUNT({i1}:{i3})<3,"",AVERAGE({i1}:{i3}))`,j:v=>[v.i1,v.i2,v.i3].every(ujIsN)?(v.i1+v.i2+v.i3)/3:"",st:17},
+  {k:"ub",h:"Ketidakseimbangan arus",u:"%",f:`IF(N([ir])>0,MAX(ABS({i1}-[ir]),ABS({i2}-[ir]),ABS({i3}-[ir]))/[ir]*100,"")`,j:(v,o)=>ujN(o.ir)>0?Math.max(...[v.i1,v.i2,v.i3].map(x=>Math.abs(x-o.ir)))/o.ir*100:"",st:14,d:"maks |Ii − Ī| ÷ Ī × 100."},
+  {k:"sub",h:"Status keseimbangan",f:`IF([ub]="","",IF([ub]<=PRM_UNBAL_MAX,"seimbang ✓","tidak seimbang (> "&PRM_UNBAL_MAX&" %)"))`,j:(v,o,P)=>o.ub===""?"":o.ub<=P.UNBAL_MAX?"seimbang ✓":`tidak seimbang (> ${P.UNBAL_MAX} %)`,st:15,w:15},
+  {k:"sth",h:"Status suhu terminal",f:`IF(ISNUMBER({suhu}),IF({suhu}>PRM_TTERM_MAX,"suhu terminal tinggi","suhu ✓"),"")`,j:(v,o,P)=>ujIsN(v.suhu)?(v.suhu>P.TTERM_MAX?"suhu terminal tinggi":"suhu ✓"):"",st:15,w:14}],
+  sum:["v1","v2","v3","vll","i1","i2","i3","in","suhu"]},
+ {k:"ISOLASI",g:"Kelistrikan",acu:"Nilai terendah dari 8 pasang pengukuran dibandingkan batas di formulir (bawaan 1,0 MΩ); kontinuitas & urutan fasa ikut menentukan kesimpulan.",
+  out:[{k:"bt",h:"Batas dipakai",u:"MΩ",f:`IF(COUNTIF({l1n}:{npe},">0")=0,"",IF(N({batas})>0,{batas},PRM_ISO_BATAS))`,j:(v,o,P)=>ujMin3(IS(v))===""?"":ujN(v.batas)>0?v.batas:P.ISO_BATAS,st:17},
+  {k:"mn",h:"Nilai terendah",u:"MΩ",f:`IF(COUNTIF({l1n}:{npe},">0")=0,"",SMALL({l1n}:{npe},COUNTIF({l1n}:{npe},"<=0")+1))`,j:v=>ujMin3(IS(v)),st:17},
+  {k:"st",h:"Tahanan isolasi",f:`IF([mn]="","",IF([mn]>=[bt],"LULUS","GAGAL"))`,j:(v,o)=>o.mn===""?"":o.mn>=o.bt?"LULUS":"GAGAL",st:15,w:10},
+  {k:"kk",h:"Kontinuitas",f:`IF({kont}="Ada yang putus","GAGAL",IF({kont}="Tersambung semua","OK",""))`,j:v=>v.kont==="Ada yang putus"?"GAGAL":v.kont==="Tersambung semua"?"OK":"",st:15,w:10},
+  {k:"uf",h:"Urutan fasa",f:`IF({urutan}="Terbalik","TERBALIK",IF({urutan}="Benar","OK",""))`,j:v=>v.urutan==="Terbalik"?"TERBALIK":v.urutan==="Benar"?"OK":"",st:15,w:10},
+  {k:"kes",h:"Kesimpulan",f:`IF([mn]="","",IF(AND([st]="LULUS",{kont}<>"Ada yang putus",{urutan}<>"Terbalik"),"LULUS","GAGAL"))`,j:(v,o)=>o.mn===""?"":o.st==="LULUS"&&v.kont!=="Ada yang putus"&&v.urutan!=="Terbalik"?"LULUS":"GAGAL",st:15,w:10}],
+  sum:["mn"],cnt:[["kes","GAGAL","Sirkuit GAGAL"],["kes","LULUS","Sirkuit LULUS"]]},
+ {k:"OHM",g:"Kelistrikan",acu:"Tahanan pembumian ≤ batas di formulir (bawaan 5 Ω).",
+  out:[{k:"bt",h:"Batas dipakai",u:"Ω",f:`IF(ISNUMBER({ohm}),IF(N({batas})>0,{batas},PRM_OHM_BATAS),"")`,j:(v,o,P)=>ujIsN(v.ohm)?(ujN(v.batas)>0?v.batas:P.OHM_BATAS):"",st:17},
+  {k:"st",h:"Status",f:`IF(ISNUMBER({ohm}),IF({ohm}<=[bt],"LULUS","GAGAL"),"")`,j:(v,o)=>ujIsN(v.ohm)?(v.ohm<=o.bt?"LULUS":"GAGAL"):"",st:15,w:10}],
+  sum:["ohm"],cnt:[["st","GAGAL","Titik GAGAL"]]},
+ {k:"KABEL",g:"Kelistrikan",acu:"Rangkuman temuan & kebutuhan penggantian kabel per titik.",
+  out:[{k:"tm",h:"Temuan",f:`IF(AND({temuan}<>"",{temuan}<>"Baik"),{temuan}&IF({sebab}<>""," ("&{sebab}&")",""),"")`,j:v=>v.temuan&&v.temuan!=="Baik"?v.temuan+(v.sebab?` (${v.sebab})`:""):"",st:15,w:22},
+  {k:"gt",h:"Penggantian",f:`IF(N({panjang})>0,"ganti ±"&{panjang}&" m "&{jenis},"")`,j:v=>ujN(v.panjang)>0?`ganti ±${v.panjang} m ${v.jenis||""}`:"",st:15,w:22}],
+  sum:["panjang"]},
+ {k:"ALATFIRE",g:"Proteksi kebakaran",acu:"Jumlah alat terpasang dibandingkan jumlah as-built.",
+  out:[{k:"pct",h:"% terpasang",f:`IF(AND(ISNUMBER({jml}),N({asb})>0),{jml}/{asb},"")`,j:v=>ujIsN(v.jml)&&ujN(v.asb)>0?v.jml/v.asb:"",st:18},
+  {k:"st",h:"Status",f:`IF([pct]="","",IF({jml}>={asb},"Lengkap","Kurang "&({asb}-{jml})&" unit"))`,j:(v,o)=>o.pct===""?"":v.jml>=v.asb?"Lengkap":`Kurang ${v.asb-v.jml} unit`,st:15,w:12}],
+  sum:["jml","asb"]},
+ {k:"ENV",g:"Kenyamanan",acu:"Batas bawaan aplikasi: ≥ 300 lux, suhu 24–27 °C, RH 40–60 %, ≤ 55 dB(A), CO₂ ≤ 1000 ppm (ubah di PARAMETER sesuai acuan tim).",
+  out:[{k:"sl",h:"Pencahayaan",f:`IF(ISNUMBER({lux}),IF({lux}>=PRM_LUX_MIN,"✓","rendah (< "&PRM_LUX_MIN&")"),"")`,j:(v,o,P)=>ujIsN(v.lux)?(v.lux>=P.LUX_MIN?"✓":`rendah (< ${P.LUX_MIN})`):"",st:15,w:12},
+  {k:"ss",h:"Suhu",f:`IF(ISNUMBER({suhu}),IF(AND({suhu}>=PRM_TA_MIN,{suhu}<=PRM_TA_MAX),"✓","di luar "&PRM_TA_MIN&"–"&PRM_TA_MAX),"")`,j:(v,o,P)=>ujIsN(v.suhu)?(v.suhu>=P.TA_MIN&&v.suhu<=P.TA_MAX?"✓":`di luar ${P.TA_MIN}–${P.TA_MAX}`):"",st:15,w:11},
+  {k:"sr",h:"Kelembapan",f:`IF(ISNUMBER({rh}),IF(AND({rh}>=PRM_RH_MIN,{rh}<=PRM_RH_MAX),"✓","di luar "&PRM_RH_MIN&"–"&PRM_RH_MAX),"")`,j:(v,o,P)=>ujIsN(v.rh)?(v.rh>=P.RH_MIN&&v.rh<=P.RH_MAX?"✓":`di luar ${P.RH_MIN}–${P.RH_MAX}`):"",st:15,w:11},
+  {k:"sd",h:"Kebisingan",f:`IF(ISNUMBER({db}),IF({db}<=PRM_DB_MAX,"✓","> "&PRM_DB_MAX&" dB(A)"),"")`,j:(v,o,P)=>ujIsN(v.db)?(v.db<=P.DB_MAX?"✓":`> ${P.DB_MAX} dB(A)`):"",st:15,w:11},
+  {k:"sc",h:"CO₂",f:`IF(ISNUMBER({co2}),IF({co2}<=PRM_CO2_MAX,"✓","> "&PRM_CO2_MAX&" ppm"),"")`,j:(v,o,P)=>ujIsN(v.co2)?(v.co2<=P.CO2_MAX?"✓":`> ${P.CO2_MAX} ppm`):"",st:15,w:11}],
+  sum:["lux","suhu","rh","db","co2"]},
+ {k:"TERMAL",g:"Kenyamanan",acu:"Batas aplikasi: Ta 24–27 °C, RH 40–60 %, v ≤ 0,25 m/s. Tambahan: suhu radiasi rata-rata Tmrt globe (ISO 7726, konveksi paksa, D = 0,15 m, ε = 0,95) dan suhu operatif To = A·Ta + (1−A)·Tmrt (ISO 7730; A = 0,5/0,6/0,7 untuk v < 0,2 / < 0,6 / ≥ 0,6 m/s).",
+  out:[{k:"sa",h:"Suhu udara Ta",f:`IF(ISNUMBER({suhu}),IF(AND({suhu}>=PRM_TA_MIN,{suhu}<=PRM_TA_MAX),"✓","di luar "&PRM_TA_MIN&"–"&PRM_TA_MAX&" °C"),"")`,j:(v,o,P)=>ujIsN(v.suhu)?(v.suhu>=P.TA_MIN&&v.suhu<=P.TA_MAX?"✓":`di luar ${P.TA_MIN}–${P.TA_MAX} °C`):"",st:15,w:12},
+  {k:"sr",h:"RH",f:`IF(ISNUMBER({rh}),IF(AND({rh}>=PRM_RH_MIN,{rh}<=PRM_RH_MAX),"✓","di luar "&PRM_RH_MIN&"–"&PRM_RH_MAX&" %"),"")`,j:(v,o,P)=>ujIsN(v.rh)?(v.rh>=P.RH_MIN&&v.rh<=P.RH_MAX?"✓":`di luar ${P.RH_MIN}–${P.RH_MAX} %`):"",st:15,w:12},
+  {k:"sv",h:"Kecepatan udara",f:`IF(ISNUMBER({v}),IF({v}<=PRM_V_MAX,"✓","> "&PRM_V_MAX&" m/s — draft"),"")`,j:(v,o,P)=>ujIsN(v.v)?(v.v<=P.V_MAX?"✓":`> ${P.V_MAX} m/s — draft`):"",st:15,w:12},
+  {k:"dg",h:"Selisih Tg − Ta",u:"°C",f:`IF(AND(ISNUMBER({tg}),ISNUMBER({suhu})),{tg}-{suhu},"")`,j:v=>ujIsN(v.tg)&&ujIsN(v.suhu)?v.tg-v.suhu:"",st:14},
+  {k:"mrt",h:"Tmrt (ISO 7726)",u:"°C",f:`IF(AND(ISNUMBER({tg}),ISNUMBER({suhu})),IFERROR((({tg}+273)^4+1.1E8*N({v})^0.6/(PRM_GLOBE_EPS*PRM_GLOBE_D^0.4)*({tg}-{suhu}))^0.25-273,""),"")`,
+   j:(v,o,P)=>{ if(!(ujIsN(v.tg)&&ujIsN(v.suhu))) return ""; const x=Math.pow(v.tg+273,4)+1.1e8*Math.pow(ujN(v.v),0.6)/(P.GLOBE_EPS*Math.pow(P.GLOBE_D,0.4))*(v.tg-v.suhu); return x>0?Math.pow(x,0.25)-273:""; },st:14,
+   d:"Tmrt = [(Tg+273)⁴ + 1,1·10⁸·v^0,6 ÷ (ε·D^0,4) · (Tg − Ta)]^¼ − 273."},
+  {k:"to",h:"Suhu operatif To",u:"°C",f:`IF([mrt]="","",IF(N({v})<0.2,0.5,IF(N({v})<0.6,0.6,0.7))*{suhu}+(1-IF(N({v})<0.2,0.5,IF(N({v})<0.6,0.6,0.7)))*[mrt])`,
+   j:(v,o)=>{ if(o.mrt==="") return ""; const s=ujN(v.v), A=s<0.2?0.5:s<0.6?0.6:0.7; return A*v.suhu+(1-A)*o.mrt; },st:14,d:"To = A·Ta + (1 − A)·Tmrt."}],
+  sum:["suhu","rh","v","tg","mrt","to"]},
+ {k:"WEATHER",g:"Kenyamanan",acu:"Sensor Ta/RH wajib terlindung radiasi; interval log ≤ 10 menit (bawaan aplikasi).",
+  out:[{k:"sh",h:"Pelindung radiasi",f:`IF({shield}="Tidak","⚠ sensor belum terlindung radiasi",IF({shield}="Ya","✓",""))`,j:v=>v.shield==="Tidak"?"⚠ sensor belum terlindung radiasi":v.shield==="Ya"?"✓":"",st:15,w:18},
+  {k:"si",h:"Interval log",f:`IF(ISNUMBER({interval}),IF({interval}<=PRM_WS_INT,"interval ✓","interval > "&PRM_WS_INT&" menit"),"")`,j:(v,o,P)=>ujIsN(v.interval)?(v.interval<=P.WS_INT?"interval ✓":`interval > ${P.WS_INT} menit`):"",st:15,w:14}]},
+ {k:"SELUBUNG",g:"Kenyamanan",acu:"WWR (window-to-wall ratio) = luas kaca ÷ (luas kaca + luas dinding masif).",
+  out:[{k:"tot",h:"Luas selubung",u:"m²",f:`IF(AND(ISNUMBER({lkaca}),ISNUMBER({ldind})),{lkaca}+{ldind},"")`,j:v=>ujIsN(v.lkaca)&&ujIsN(v.ldind)?v.lkaca+v.ldind:"",st:17},
+  {k:"wwr",h:"WWR",f:`IF(N([tot])>0,{lkaca}/[tot],"")`,j:(v,o)=>ujN(o.tot)>0?v.lkaca/o.tot:"",st:18}],sum:["lkaca","ldind","tot"]},
+ {k:"AC",g:"Utilitas",acu:"Rasio arus start terhadap arus kerja (indikasi kondisi kompresor/kapasitor).",
+  out:[{k:"rs",h:"I start ÷ I kerja",u:"×",f:`IF(AND(N({istart})>0,N({irun})>0),{istart}/{irun},"")`,j:v=>ujN(v.istart)>0&&ujN(v.irun)>0?v.istart/v.irun:"",st:14}],sum:["istart","irun","tsupply"]},
+ {k:"DEBIT",g:"Utilitas",acu:"Debit = volume ÷ waktu × 60; minimum bawaan 6 L/menit.",
+  out:[{k:"q",h:"Debit",u:"L/mnt",f:`IF(AND(N({vol})>0,N({dtk})>0),{vol}/{dtk}*60,"")`,j:v=>ujN(v.vol)>0&&ujN(v.dtk)>0?v.vol/v.dtk*60:"",st:14},
+  {k:"st",h:"Status",f:`IF([q]="","",IF([q]>=PRM_DEBIT_MIN,"✓","rendah (< "&PRM_DEBIT_MIN&" L/mnt)"))`,j:(v,o,P)=>o.q===""?"":o.q>=P.DEBIT_MIN?"✓":`rendah (< ${P.DEBIT_MIN} L/mnt)`,st:15,w:14}],sum:["q","tek"]},
+ {k:"LAMPU",g:"Utilitas",acu:"Lampu berfungsi = jumlah − mati.",
+  out:[{k:"ok",h:"Berfungsi",u:"titik",f:`IF(ISNUMBER({jml}),{jml}-N({mati}),"")`,j:v=>ujIsN(v.jml)?v.jml-ujN(v.mati):"",st:20},
+  {k:"pct",h:"% berfungsi",f:`IF(N({jml})>0,[ok]/{jml},"")`,j:(v,o)=>ujN(v.jml)>0?o.ok/v.jml:"",st:18}],sum:["jml","mati","ok"]},
+ {k:"RUANG",g:"Arsitektur",acu:"Luas = panjang × lebar; luas per pengguna = luas ÷ jumlah pengguna.",
+  out:[{k:"luas",h:"Luas",u:"m²",f:`IF(AND(ISNUMBER({p}),ISNUMBER({l})),{p}*{l},"")`,j:v=>ujIsN(v.p)&&ujIsN(v.l)?v.p*v.l:"",st:17},
+  {k:"lpo",h:"Luas per pengguna",u:"m²/org",f:`IF(AND(ISNUMBER([luas]),N({pengguna})>0),[luas]/{pengguna},"")`,j:(v,o)=>ujIsN(o.luas)&&ujN(v.pengguna)>0?o.luas/v.pengguna:"",st:17}],sum:["luas","pengguna"]},
+ {k:"JARAK",g:"Arsitektur",acu:"Jarak terukur dibandingkan syarat.",
+  out:[{k:"sel",h:"Selisih jarak − syarat",u:"m",f:`IF(AND(ISNUMBER({jarak}),ISNUMBER({syarat})),{jarak}-{syarat},"")`,j:v=>ujIsN(v.jarak)&&ujIsN(v.syarat)?v.jarak-v.syarat:"",st:17},
+  {k:"st",h:"Status",f:`IF([sel]="","",IF({jarak}>={syarat},"Memenuhi","TIDAK memenuhi"))`,j:(v,o)=>o.sel===""?"":v.jarak>=v.syarat?"Memenuhi":"TIDAK memenuhi",st:15,w:14}],cnt:[["st","TIDAK*","Tidak memenuhi"]]},
+ {k:"TINGGI",g:"Arsitektur",acu:"Selisih tinggi/peil terukur terhadap as-built.",
+  out:[{k:"sel",h:"Selisih terukur − as-built",u:"m",f:`IF(AND(ISNUMBER({nilai}),ISNUMBER({asb})),{nilai}-{asb},"")`,j:v=>ujIsN(v.nilai)&&ujIsN(v.asb)?v.nilai-v.asb:"",st:17},
+  {k:"mm",h:"Selisih",u:"mm",f:`IF([sel]="","",[sel]*1000)`,j:(v,o)=>o.sel===""?"":o.sel*1000,st:20}],sum:["sel"]},
+ {k:"PINTU",g:"Arsitektur",acu:"Lebar bersih pintu ≥ 90 cm (bawaan aplikasi).",
+  out:[{k:"st",h:"Status lebar",f:`IF(ISNUMBER({lebar}),IF({lebar}>=PRM_PINTU_MIN,"Lebar ≥ "&PRM_PINTU_MIN&" cm ✓","Lebar < "&PRM_PINTU_MIN&" cm ✗"),"")`,j:(v,o,P)=>ujIsN(v.lebar)?(v.lebar>=P.PINTU_MIN?`Lebar ≥ ${P.PINTU_MIN} cm ✓`:`Lebar < ${P.PINTU_MIN} cm ✗`):"",st:15,w:15}],sum:["lebar","tinggi"],cnt:[["st","*✗","Pintu kurang lebar"]]},
+ {k:"KORIDOR",g:"Arsitektur",acu:"Lebar koridor/jalur ≥ 1,8 m memenuhi; 1,2–1,8 m cek fungsi; < 1,2 m tidak memenuhi (bawaan aplikasi).",
+  out:[{k:"st",h:"Status lebar",f:`IF(ISNUMBER({lebar}),IF({lebar}>=PRM_KOR_MIN,"≥ "&PRM_KOR_MIN&" m ✓",IF({lebar}>=PRM_KOR_MIN2,PRM_KOR_MIN2&"–"&PRM_KOR_MIN&" m (cek fungsi)","< "&PRM_KOR_MIN2&" m ✗")),"")`,
+   j:(v,o,P)=>ujIsN(v.lebar)?(v.lebar>=P.KOR_MIN?`≥ ${P.KOR_MIN} m ✓`:v.lebar>=P.KOR_MIN2?`${P.KOR_MIN2}–${P.KOR_MIN} m (cek fungsi)`:`< ${P.KOR_MIN2} m ✗`):"",st:15,w:16}],sum:["lebar"]},
+ {k:"TANGGA",g:"Arsitektur",acu:"Lebar ≥ 120 cm, antrede ≥ 28 cm, optrede ≤ 18 cm, 2·optrede + antrede ideal 60–65 cm (bawaan aplikasi).",
+  out:[{k:"sl",h:"Lebar",f:`IF(ISNUMBER({lebar}),IF({lebar}>=PRM_TG_LEBAR,"✓","< "&PRM_TG_LEBAR&" ✗"),"")`,j:(v,o,P)=>ujIsN(v.lebar)?(v.lebar>=P.TG_LEBAR?"✓":`< ${P.TG_LEBAR} ✗`):"",st:15,w:9},
+  {k:"sa",h:"Antrede",f:`IF(ISNUMBER({antrede}),IF({antrede}>=PRM_TG_ANTREDE,"✓","< "&PRM_TG_ANTREDE&" ✗"),"")`,j:(v,o,P)=>ujIsN(v.antrede)?(v.antrede>=P.TG_ANTREDE?"✓":`< ${P.TG_ANTREDE} ✗`):"",st:15,w:9},
+  {k:"so",h:"Optrede",f:`IF(ISNUMBER({optrede}),IF({optrede}<=PRM_TG_OPTREDE,"✓","> "&PRM_TG_OPTREDE&" ✗"),"")`,j:(v,o,P)=>ujIsN(v.optrede)?(v.optrede<=P.TG_OPTREDE?"✓":`> ${P.TG_OPTREDE} ✗`):"",st:15,w:9},
+  {k:"oa",h:"2·O + A",u:"cm",f:`IF(AND(ISNUMBER({antrede}),ISNUMBER({optrede})),2*{optrede}+{antrede},"")`,j:v=>ujIsN(v.antrede)&&ujIsN(v.optrede)?2*v.optrede+v.antrede:"",st:14},
+  {k:"soa",h:"Status 2·O + A",f:`IF([oa]="","",IF(AND([oa]>=PRM_TG_2OA_MIN,[oa]<=PRM_TG_2OA_MAX),"✓ ideal","di luar "&PRM_TG_2OA_MIN&"–"&PRM_TG_2OA_MAX))`,j:(v,o,P)=>o.oa===""?"":o.oa>=P.TG_2OA_MIN&&o.oa<=P.TG_2OA_MAX?"✓ ideal":`di luar ${P.TG_2OA_MIN}–${P.TG_2OA_MAX}`,st:15,w:12}]},
+ {k:"RAMP",g:"Arsitektur",acu:"Kemiringan 1:n dengan n = panjang ÷ beda tinggi; memenuhi bila n ≥ 12 (bawaan aplikasi).",
+  out:[{k:"n",h:"Kemiringan 1 : n",f:`IF(AND(N({panjang})>0,N({beda})>0),{panjang}/{beda},"")`,j:v=>ujN(v.panjang)>0&&ujN(v.beda)>0?v.panjang/v.beda:"",st:14},
+  {k:"pc",h:"Kemiringan",u:"%",f:`IF([n]="","",{beda}/{panjang}*100)`,j:(v,o)=>o.n===""?"":v.beda/v.panjang*100,st:14},
+  {k:"st",h:"Status",f:`IF([n]="","",IF([n]>=PRM_RAMP_MIN,"✓ (≤ 1:"&PRM_RAMP_MIN&")",IF([n]>=PRM_RAMP_MIN2,"1:"&PRM_RAMP_MIN2&"–1:"&PRM_RAMP_MIN&" (cek ketentuan)","✗ terlalu curam")))`,
+   j:(v,o,P)=>o.n===""?"":o.n>=P.RAMP_MIN?`✓ (≤ 1:${P.RAMP_MIN})`:o.n>=P.RAMP_MIN2?`1:${P.RAMP_MIN2}–1:${P.RAMP_MIN} (cek ketentuan)`:"✗ terlalu curam",st:15,w:16}]},
+ {k:"PARKIR",g:"Arsitektur",acu:"Kebutuhan SRP difabel = maks(1, pembulatan ke atas SRP ÷ 100) (bawaan aplikasi).",
+  out:[{k:"kb",h:"SRP difabel dibutuhkan",f:`IF(N({srp})>0,MAX(1,ROUNDUP({srp}/PRM_PKR_PER,0)),"")`,j:(v,o,P)=>ujN(v.srp)>0?Math.max(1,Math.ceil(v.srp/P.PKR_PER-1e-12)):"",st:20},
+  {k:"st",h:"Status",f:`IF([kb]="","",IF(N({difabel})>=[kb],"✓ cukup","kurang "&([kb]-N({difabel}))))`,j:(v,o)=>o.kb===""?"":ujN(v.difabel)>=o.kb?"✓ cukup":`kurang ${o.kb-ujN(v.difabel)}`,st:15,w:11}],sum:["srp","difabel"]}];
+const RS=v=>["r1","r2","r3","r4","r5","r6","r7","r8","r9","r10","r11","r12"].map(k=>v[k]).filter(x=>ujIsN(x)&&x>0);
+const IS=v=>["l1n","l2n","l3n","l12","l23","l13","lpe","npe"].map(k=>v[k]);
+const avg=a=>a.reduce((s,x)=>s+x,0)/a.length;
+
+/* ---- kumpulkan titik per formulir (semua gedung) ---- */
+function ujTitik(mode){ const ord=b=>{ const i=BUILDINGS.findIndex(x=>x.id===b); return i<0?99:i; };
+ const lvo=p=>{ const B=BUILDINGS.find(b=>b.id===p.bld); const i=B?B.levels.findIndex(l=>l.id===p.lvl):-1; return i<0?99:i; };
+ return allPts().filter(p=>{ const it=L2_BY[p.item]; return it&&it.pm===mode&&p.v&&Object.entries(p.v).some(([k,x])=>!/^(fcAuto|fcMan|Rk)$/.test(k)&&x!==""&&x!=null); })
+  .sort((a,b)=>ord(a.bld)-ord(b.bld)||lvo(a)-lvo(b)||String(a.item).localeCompare(String(b.item),"id",{numeric:true})||String(a.id).localeCompare(String(b.id),"id",{numeric:true})); }
+function ujKolom(sp){ const pm=PMODES[sp.k]; const F=Object.fromEntries(pm.f.map(f=>[f.k,f]));
+ return (sp.in||pm.f.map(f=>f.k)).map(x=>{ if(typeof x==="object") return {k:x.k,h:x.h,u:x.u||"",num:!!x.num,get:x.get};
+  const f=F[x]; let h=f.l.replace(/\s*\(.*?\)\s*$/,"").replace(/ — .*$/,""); if(h.length>34) h=h.slice(0,32)+"…"; return {k:x,h,u:f.u||"",num:f.t==="num",sel:f.t==="sel"}; }); }
+const ujVal=(c,v)=>{ const x=c.get?c.get(v):v[c.k]; if(x===""||x==null) return ""; if(c.num){ const n=typeof x==="number"?x:hmNum(x); return isFinite(n)?n:String(x); } return String(x); };
+
+/* ---- susun satu lembar ---- */
+function ujLembar(sp,no,P,daftar){ const pm=PMODES[sp.k]; const pts=ujTitik(sp.k); const IN=ujKolom(sp); const OUT=sp.out;
+ const nId=UJ_ID.length, c0=nId, cO=c0+IN.length, cA=cO+OUT.length; const NC=cA+1;
+ const colIn=Object.fromEntries(IN.map((c,i)=>[c.k,c0+i])), colOut=Object.fromEntries(OUT.map((c,i)=>[c.k,cO+i]));
+ const R={name:`${String(no).padStart(2,"0")} ${sp.k}`,cols:[...UJ_ID.map(x=>x[1]),...IN.map(c=>c.num?(/^r\d+$/.test(c.k)?5.5:8.5):Math.min(16,Math.max(10,c.h.length*0.55))),...OUT.map(o=>o.w||10),46],rows:[],merges:[],heights:{},freeze:6,fit:1};
+ const blank=()=>Array(NC).fill(null); const row1=blank(); row1[0]={v:`${pm.n} — lembar hitungan`,s:9}; R.rows.push(row1);
+ const row2=blank(); row2[0]={v:`Formulir ${sp.k} · ${sp.g} · ${pts.length} titik data · semua gedung · diekspor ${new Date().toLocaleString("id-ID")} · perangkat ${S.dev||"-"}`,s:11}; R.rows.push(row2);
+ const row3=blank(); row3[0]={v:`Sel PUTIH = data lapangan (boleh dikoreksi). Sel ABU-ABU = rumus Excel — jangan ditimpa; batas & koefisien diubah di lembar PARAMETER. Acuan: ${sp.acu}`,s:11}; R.rows.push(row3);
+ R.merges.push(`A1:${colL(NC-1)}1`,`A2:${colL(NC-1)}2`,`A3:${colL(NC-1)}3`); R.heights[2]=sxHeight([{v:row3[0].v}],[R.cols.reduce((a,b)=>a+b,0)]);
+ /* baris 4: kelompok kolom */
+ const g=blank(); const put=(a,b,t)=>{ g[a]={v:t,s:19}; for(let k=a+1;k<=b;k++) g[k]={v:"",s:19}; if(b>a) R.merges.push(`${colL(a)}4:${colL(b)}4`); };
+ put(0,nId-1,"IDENTITAS SAMPEL"); put(c0,cO-1,"DATA LAPANGAN (input)"); put(cO,cA-1,"HASIL HITUNGAN (rumus Excel)"); g[cA]={v:"CEK SILANG",s:19}; R.rows.push(g);
+ /* baris 5: judul kolom */
+ const hd=blank(); UJ_ID.forEach((x,i)=>hd[i]={v:x[0],s:19}); IN.forEach((c,i)=>hd[c0+i]={v:c.h+(c.u?` (${c.u})`:""),s:19}); OUT.forEach((o,i)=>hd[cO+i]={v:o.h+(o.u?` (${o.u})`:""),s:19}); hd[cA]={v:"Hasil di aplikasi",s:19};
+ R.rows.push(hd); R.heights[4]=Math.min(80,sxHeight(hd,R.cols));
+ /* baris 6: keterangan isi */
+ const ds=blank(); UJ_ID.forEach((x,i)=>ds[i]={v:"",s:13}); IN.forEach((c,i)=>ds[c0+i]={v:c.get?"dari aplikasi":c.sel?"pilihan":c.num?"angka":"teks",s:13});
+ OUT.forEach((o,i)=>ds[cO+i]={v:"rumus",s:13}); ds[cA]={v:"teks hitungan aplikasi",s:13}; R.rows.push(ds);
+ const r0=7, nSp=pts.length?5:10, rN=r0+pts.length+nSp-1;
+ const ref=(t,r)=>t.replace(/\{(\w+)\}/g,(m,k)=>{ if(!(k in colIn)) throw new Error(`${sp.k}: isian ${k}`); return colL(colIn[k])+r; })
+  .replace(/\[(\w+)\]/g,(m,k)=>{ if(!(k in colOut)) throw new Error(`${sp.k}: hasil ${k}`); return colL(colOut[k])+r; })
+  .replace(/@M/g,`PARAMETER!$C$${P._tab0}`).replace(/@R/g,`PARAMETER!$B$${P._tab0}`);
+ const rumus1={};
+ const tulis=(p,i)=>{ const r=r0+i; const row=blank(); const v={};
+  IN.forEach(c=>{ v[c.k]=p?ujVal(c,p.v):""; });
+  if(p){ const it=L2_BY[p.item]||{}; [i+1,p.id,bName(p.bld),typeof lvName==="function"?lvName(p):p.lvl,roomNameP(p),p.grid||"",`${p.item} ${it.n||""}`,p.nama||""].forEach((x,k)=>row[k]={v:x,s:k===0?7:3}); }
+  else { row[0]={v:i+1,s:7}; for(let k=1;k<nId;k++) row[k]={v:"",s:3}; }
+  IN.forEach((c,k)=>row[c0+k]={v:v[c.k],s:16});
+  const o={}; OUT.forEach((x,k)=>{ let cv=""; try{ cv=x.j(v,o,P); }catch(e){ cv=""; } if(typeof cv==="number"&&!isFinite(cv)) cv=""; o[x.k]=cv; const f=ref(x.f,r); if(i===0) rumus1[x.k]=f; row[cO+k]={f,v:cv,s:x.st}; });
+  let teks=""; if(p&&pm.calc){ try{ teks=pm.calc(p.v)||""; }catch(e){} } row[cA]={v:teks,s:13};
+  R.rows.push(row); R.heights[r-1]=Math.max(15,sxHeight([row[cA],...OUT.map((x,k)=>x.st===15?{v:String(o[x.k]||"")}:null)],[R.cols[cA],...OUT.map(x=>x.w||10)])); };
+ pts.forEach((p,i)=>tulis(p,i)); for(let i=0;i<nSp;i++) tulis(null,pts.length+i);
+ /* ringkasan */
+ const rng=c=>`${colL(c)}${r0}:${colL(c)}${rN}`; const colOf=k=>k in colOut?colOut[k]:colIn[k];
+ if((sp.sum&&sp.sum.length)||(sp.cnt&&sp.cnt.length)){ R.rows.push(blank());
+  const vals=c=>R.rows.slice(r0-1,rN).map(rw=>rw[c]&&rw[c].v).filter(ujIsN);
+  const stat=[["Jumlah data","COUNT",a=>a.length],["Rata-rata","AVERAGE",a=>a.length?avg(a):""],["Minimum","MIN",a=>a.length?Math.min(...a):""],["Maksimum","MAX",a=>a.length?Math.max(...a):""],
+   ["Simpangan baku","STDEV",a=>a.length>1?Math.sqrt(a.reduce((s,x)=>s+(x-avg(a))**2,0)/(a.length-1)):""]];
+  if(sp.sum&&sp.sum.length) stat.forEach(([lb,fn,js])=>{ const row=blank(); row[0]={v:lb,s:8}; for(let k=1;k<cO&&k<nId;k++) row[k]={v:"",s:8}; R.merges.push(`A${R.rows.length+1}:${colL(nId-1)}${R.rows.length+1}`);
+   sp.sum.forEach(k=>{ const c=colOf(k); if(c==null) return; const a=vals(c); const f=fn==="COUNT"?`COUNT(${rng(c)})`:fn==="STDEV"?`IF(COUNT(${rng(c)})>1,STDEV(${rng(c)}),"")`:`IF(COUNT(${rng(c)})=0,"",${fn}(${rng(c)}))`; row[c]={f,v:js(a),s:fn==="COUNT"?20:17}; });
+   R.rows.push(row); });
+  (sp.cnt||[]).forEach(([k,crit,lb])=>{ const row=blank(); row[0]={v:lb,s:8}; for(let kk=1;kk<nId;kk++) row[kk]={v:"",s:8}; R.merges.push(`A${R.rows.length+1}:${colL(nId-1)}${R.rows.length+1}`);
+   const c=colOf(k); const re=new RegExp("^"+crit.replace(/[.+?^${}()|[\]\\]/g,"\\$&").replace(/\*/g,".*")+"$"); const n=R.rows.slice(r0-1,rN).filter(rw=>rw[c]&&typeof rw[c].v==="string"&&re.test(rw[c].v)).length;
+   row[c]={f:`COUNTIF(${rng(c)},"${crit}")`,v:n,s:20}; R.rows.push(row); }); }
+ daftar.push({sp,no,lembar:R.name,n:pts.length,rumus1,OUT});
+ return R; }
+
+/* ---- lembar PARAMETER ---- */
+function ujParamSheet(P,names){ const G=ujParam(); const R={name:"PARAMETER",cols:[18,12,9,70],rows:[],merges:[],heights:{},portrait:1,fit:1,freeze:3};
+ R.rows.push([{v:"PARAMETER RUMUS — batas & koefisien",s:9}]); R.rows.push([{v:"Kolom Nilai boleh diubah; seluruh lembar pengujian memakai sel ini lewat nama rentang (Formulas ▸ Name Manager). Bawaan = nilai yang dipakai aplikasi SIMAK-BG.",s:11}]);
+ R.merges.push("A1:D1","A2:D2"); R.heights[1]=28;
+ R.rows.push(["Nama rentang","Nilai","Satuan","Keterangan / acuan"].map(v=>({v,s:19})));
+ G.forEach(gr=>{ R.rows.push([{v:gr.g,s:8},{v:"",s:8},{v:"",s:8},{v:"",s:8}]); R.merges.push(`A${R.rows.length}:D${R.rows.length}`);
+  gr.a.forEach(([n,val,u,ket])=>{ R.rows.push([{v:"PRM_"+n,s:3},{v:val,s:16},{v:u,s:5},{v:ket,s:3}]); names.push({n:"PRM_"+n,ref:`PARAMETER!$B$${R.rows.length}`}); P[n]=val; R.heights[R.rows.length-1]=sxHeight([{v:ket}],[70]); }); });
+ R.rows.push([]); R.rows.push([{v:"TABEL KURVA ALAT (dipakai bila PRM_HM_KURVA = T) — pasangan R → MPa, urut naik",s:8},{v:"",s:8},{v:"",s:8},{v:"",s:8}]); R.merges.push(`A${R.rows.length}:D${R.rows.length}`);
+ R.rows.push(["Pasangan","R (rebound)","MPa","Keterangan"].map(v=>({v,s:19})));
+ P._tab0=R.rows.length+1; const T=P.TAB;
+ for(let i=0;i<UJ_TAB;i++){ const t=T[i]; R.rows.push([{v:i+1,s:7},{v:t?t[0]:"",s:16},{v:t?t[1]:"",s:16},{v:i===0?(T.length?"dari pengaturan ⚙ kurva di aplikasi":"isi dari grafik pada badan alat (minimal 2 pasang)"):"",s:3}]); }
+ const a=P._tab0, b=a+UJ_TAB-1;
+ names.push({n:"PRM_TAB_N",ref:`COUNT(PARAMETER!$B$${a}:$B$${b})`});
+ names.push({n:"PRM_TAB_R",ref:`OFFSET(PARAMETER!$B$${a},0,0,MAX(2,COUNT(PARAMETER!$B$${a}:$B$${b})),1)`});
+ names.push({n:"PRM_TAB_M",ref:`OFFSET(PARAMETER!$C$${a},0,0,MAX(2,COUNT(PARAMETER!$B$${a}:$B$${b})),1)`});
+ return R; }
+
+/* ---- lembar PETUNJUK (daftar seluruh rumus) ---- */
+function ujPetunjuk(daftar){ const R={name:"PETUNJUK",cols:[5,13,26,22,8,24,62,46],rows:[],merges:[],heights:{},freeze:9,fit:1};
+ const W=R.cols.reduce((a,b)=>a+b,0); const line=(t,s)=>{ R.rows.push([{v:t,s:s||10}]); R.merges.push(`A${R.rows.length}:H${R.rows.length}`); R.heights[R.rows.length-1]=sxHeight([{v:t}],[W]); };
+ line("SIMAK-BG — LEMBAR PENGUJIAN ALAT BESERTA RUMUS",9);
+ line(`Kajian teknis kelaikan fungsi — Kantor Bupati Malaka · semua gedung · diekspor ${new Date().toLocaleString("id-ID")} · perangkat ${S.dev||"-"}`,11);
+ line("1. Setiap formulir pengujian/pengukuran dengan alat punya lembar sendiri (01 HAMMER, 02 REBAR, …). Kolom DATA LAPANGAN (sel putih) berisi isian dari aplikasi dan boleh dikoreksi; kolom HASIL HITUNGAN (sel abu-abu) adalah rumus Excel hidup yang langsung menghitung ulang.");
+ line("2. Semua batas, koefisien kurva hammer, dan tabel kurva alat ada di lembar PARAMETER sebagai nama rentang PRM_…. Ubah nilainya di sana; seluruh lembar ikut berubah. Nilai bawaan sama dengan yang dipakai aplikasi, sehingga hasil Excel = hasil aplikasi (bandingkan dengan kolom \"Hasil di aplikasi\").");
+ line("3. Di bawah data setiap lembar tersedia baris kosong yang sudah ber-rumus untuk tambahan pengukuran, diikuti ringkasan statistik (jumlah, rata-rata, minimum, maksimum, simpangan baku) dan hitungan status.");
+ line("4. Tabel di bawah mendaftar SELURUH rumus: rumus Excel yang ditulis pada baris data pertama setiap lembar (baris berikutnya identik dengan nomor baris disesuaikan) beserta penjelasan dan acuannya.");
+ R.rows.push([]);
+ R.rows.push(["No","Lembar","Pengujian","Butir daftar simak","Titik","Kolom hasil","Rumus Excel (baris data pertama)","Penjelasan / acuan"].map(v=>({v,s:19})));
+ daftar.forEach(d=>{ const pm=PMODES[d.sp.k]; const butir=Object.values(L2_BY).filter(it=>it.pm===d.sp.k).map(it=>it.c).join(", ");
+  const r1=R.rows.length+1;
+  d.OUT.forEach((o,i)=>{ const row=[{v:i?"":d.no,s:7},{v:i?"":d.lembar,s:8},{v:i?"":pm.n,s:3},{v:i?"":butir,s:13},{v:i?"":d.n,s:7},{v:o.h+(o.u?` (${o.u})`:""),s:3},{v:"="+(d.rumus1[o.k]||""),s:13},{v:(o.d||"")+(i===0?(o.d?"\n":"")+"Acuan: "+d.sp.acu:""),s:3}];
+   R.rows.push(row); R.heights[R.rows.length-1]=Math.min(160,sxHeight(row,R.cols)); });
+  const r2=R.rows.length; if(r2>r1) ["A","B","C","D","E"].forEach(c=>R.merges.push(`${c}${r1}:${c}${r2}`)); });
+ return R; }
+
+function ujBuildWorkbook(){ const names=[]; const P={}; const h=typeof HMS==="function"?HMS():{tab:""}; P.TAB=hmTabel(h.tab).slice(0,UJ_TAB);
+ const prm=ujParamSheet(P,names); const daftar=[]; const sheets=[];
+ UJ_SPEC.forEach((sp,i)=>{ if(PMODES[sp.k]) sheets.push(ujLembar(sp,i+1,P,daftar)); });
+ return {sheets:[ujPetunjuk(daftar),prm,...sheets],names}; }
+
+/* tombol */
+(function(){ const b=document.getElementById("btnUjiX"); if(!b) return;
+ b.onclick=async()=>{ if(b.disabled) return; b.disabled=true; const t0=b.textContent; b.textContent="⏳ Menyusun Excel pengujian…";
+  try{ if(typeof hmIsiSemua==="function"&&hmIsiSemua()) save(); await new Promise(r=>setTimeout(r,30));
+   const W=ujBuildWorkbook(); const u8=buildXlsx(W.sheets,[],{names:W.names});
+   dlBin(`PENGUJIAN_ALAT_RUMUS_${S.dev||"HP"}_${stampF()}.xlsx`,u8,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"); }
+  catch(e){ console.error(e); alert("Gagal menyusun Excel pengujian: "+e.message); }
+  finally{ b.disabled=false; b.textContent=t0; } }; })();
 
 /* ====== EKSPOR LAPORAN WORD ====== */
 /* ====== PENULIS DOCX LAPORAN (v15) — tata letak laporan teknis resmi, hitam-putih ======
@@ -2198,7 +2573,7 @@ function lpIndikasi(st){ if(st.diperiksa<st.butir*0.7) return "pemeriksaan belum
  if(st.r[1]||st.r[2]) return "laik fungsi dengan catatan pemeliharaan atau perbaikan ringan";
  return "laik fungsi"; }
 /* ---- penyusun laporan ---- */
-async function buildLaporan(sel,opt){ opt=opt||{}; const prog=opt.onProg||(()=>{});
+async function buildLaporan(sel,opt){ opt=opt||{}; if(typeof hmIsiSemua==="function"&&hmIsiSemua()) save(); const prog=opt.onProg||(()=>{});
  const u=umumObj(); const G=bName(S.bld); const NAMA=u.nama||("Kantor Bupati Malaka — "+G);
  const C=lpCollect(sel); const presetNm=Object.keys(LP_PRESET).find(k=>LP_PRESET[k].length===sel.length&&LP_PRESET[k].every(x=>sel.includes(x)));
  const lingkupNm=presetNm?LP_PRESET_NM[presetNm]:C.J.map(j=>j.nm).join(", ");
@@ -3600,7 +3975,7 @@ function renderRekap(){ const all=allPts(); const tm=all.filter(isTemuan); const
  const d2=l2Obj(); updXlsxLabel(); if(typeof lapPaint==='function') lapPaint(); tampilInfoSimpan(); const I=indikasi(S.bld);
  $("#simakrekap").innerHTML=`<table class="tbl"><tr><th>Aspek</th><th class="c">Terisi</th><th class="c">Sampel</th><th class="c">Sesuai</th><th class="c">Tidak sesuai</th><th class="c">Rusak ringan</th><th class="c">Rusak sedang</th><th class="c">Rusak berat</th><th class="c">Kritis</th></tr>${I.A.map(o=>`<tr><td>${o.k} ${o.nm}</td><td class="c">${o.terisi}/${o.butir}</td><td class="c">${o.sampel}</td><td class="c">${o.ses}</td><td class="c">${o.ts?`<b style="color:var(--red)">${o.ts}</b>`:0}</td><td class="c">${o.r[1]}</td><td class="c">${o.r[2]}</td><td class="c">${o.r[3]?`<b style="color:var(--red)">${o.r[3]}</b>`:0}</td><td class="c">${o.r[4]?`<b style="color:var(--red)">${o.r[4]}</b>`:0}</td></tr>`).join("")}</table>`;
  $("#simakrekap").innerHTML+=`<div class="ov"><b>Indikasi awal ${bName(S.bld)} (otomatis, bukan keputusan ahli):</b> ${I.teks}<br><small>Butir terisi ${I.terisi}/${I.butir} · tidak sesuai ${I.ts} · rusak berat ${I.berat} · kritis ${I.krit}. Keandalan & kelaikan disimpulkan tim ahli di laporan.</small></div>`;
- const hm=ptsObj().filter(p=>L2_BY[p.item]&&L2_BY[p.item].pm==="HAMMER"); if(hm.length){ const byL={}; hm.forEach(p=>{ const r=[1,2,3,4,5,6,7,8,9,10,11,12].map(i=>+p.v["r"+i]).filter(v=>v>0); if(r.length<3) return; const m=r.reduce((a,b)=>a+b,0)/r.length; const ok=r.filter(v=>Math.abs(v-m)<=6); const R=ok.reduce((a,b)=>a+b,0)/ok.length; (byL[p.lvl]=byL[p.lvl]||[]).push({R,fc:+p.v.fc||null,tipe:(p.v.elem||"").slice(0,1)}); }); if(Object.keys(byL).length) $("#simakrekap").innerHTML+=`<h3>Rekap hammer test per lantai (${bName(S.bld)})</h3><table class="tbl"><tr><th>Lantai</th><th class="c">n titik</th><th class="c">R rata</th><th class="c">R min–maks</th><th class="c">fc' est. rata (MPa)</th></tr>${Object.entries(byL).map(([l,a])=>{const Rs=a.map(x=>x.R); const fcs=a.filter(x=>x.fc).map(x=>x.fc); return `<tr><td>${l}</td><td class="c">${a.length}</td><td class="c">${(Rs.reduce((x,y)=>x+y,0)/Rs.length).toFixed(1)}</td><td class="c">${Math.min(...Rs).toFixed(0)}–${Math.max(...Rs).toFixed(0)}</td><td class="c">${fcs.length?(fcs.reduce((x,y)=>x+y,0)/fcs.length).toFixed(1):"—"}</td></tr>`;}).join("")}</table><p class="note">R = rebound rata-rata setelah pembuangan bacaan >±6 dari rata-rata; fc' mengikuti kurva alat yang diisi di tiap titik.</p>`; }
+ const hm=ptsObj().filter(p=>L2_BY[p.item]&&L2_BY[p.item].pm==="HAMMER"); if(hm.length){ const byL={}; hm.forEach(p=>{ const o=hmHitung(p.v); if(o.n<3||o.tolak) return; (byL[p.lvl]=byL[p.lvl]||[]).push({R:o.Rk,fc:hmNum(p.v.fc)>0?hmNum(p.v.fc):(o.fc||null),tipe:(p.v.elem||"").slice(0,1)}); }); if(Object.keys(byL).length) $("#simakrekap").innerHTML+=`<h3>Rekap hammer test per lantai (${bName(S.bld)})</h3><table class="tbl"><tr><th>Lantai</th><th class="c">n titik</th><th class="c">R terkoreksi rata</th><th class="c">R min–maks</th><th class="c">fc' est. rata (MPa)</th><th class="c">fc' min (MPa)</th></tr>${Object.entries(byL).map(([l,a])=>{const Rs=a.map(x=>x.R); const fcs=a.filter(x=>x.fc).map(x=>x.fc); return `<tr><td>${l}</td><td class="c">${a.length}</td><td class="c">${(Rs.reduce((x,y)=>x+y,0)/Rs.length).toFixed(1)}</td><td class="c">${Math.min(...Rs).toFixed(0)}–${Math.max(...Rs).toFixed(0)}</td><td class="c">${fcs.length?(fcs.reduce((x,y)=>x+y,0)/fcs.length).toFixed(1):"—"}</td><td class="c">${fcs.length?Math.min(...fcs).toFixed(1):"—"}</td></tr>`;}).join("")}</table><p class="note">R = rata-rata bacaan setelah membuang bacaan >±6 dari rata-rata (set ditolak bila >2 dibuang), dikoreksi arah pukulan. fc' = ${esc(HM_KURVA[HMS().kv].n)}${HMS().kv==="T"&&HMS().tsil?"":` × ${String(HMS().fk).replace(".",",")} (kubus → silinder)`}; nilai yang diisi manual di titik tetap dipakai.</p>`; }
  const rb=ptsObj().filter(p=>L2_BY[p.item]&&L2_BY[p.item].pm==="REBAR"); if(rb.length){ $("#simakrekap").innerHTML+=`<h3>Verifikasi penulangan (rebar scan)</h3><table class="tbl"><tr><th>Elemen</th><th>Tul. utama aktual / as-built</th><th>Sengkang aktual / as-built</th><th class="c">Selimut (mm)</th><th>Hasil</th></tr>${rb.map(p=>`<tr><td>${p.lvl} ${esc(p.v.elem||"")}</td><td>${esc(p.v.nutama||"—")} / ${esc(p.v.nutamar||"—")}</td><td>${esc(p.v.seng||"—")} / ${esc(p.v.sengr||"—")}</td><td class="c">${p.v.cover||"—"}${p.v.coverr?" / "+p.v.coverr:""}</td><td>${esc(PMODES.REBAR.calc(p.v))}</td></tr>`).join("")}</table>`; }
  const dokN=DOK.reduce((a,[g,i])=>a+i.length,0), dokF=DOK.flatMap(([g,i])=>i).filter(([k])=>(S.dok[k]||{}).s).length; const smN=L2_ITEMS.length, smF=L2_ITEMS.filter(it=>itemDone(d2[it.c],it.c)).length;
  $("#progres").innerHTML=`<table class="tbl"><tr><td>Checklist dokumen</td><td class="c">${dokF}/${dokN}</td></tr><tr><td>Butir daftar simak (${bName(S.bld)})</td><td class="c">${smF}/${smN}</td></tr><tr><td>Titik pemeriksaan (${bName(S.bld)})</td><td class="c">${ptsObj().length} titik, ${ptsObj().filter(p=>p.photos.length).length} berfoto</td></tr><tr><td>Temuan berfoto (${bName(S.bld)})</td><td class="c">${ptsObj().filter(p=>isTemuan(p)&&p.photos.length).length}/${ptsObj().filter(isTemuan).length}</td></tr></table>`;
@@ -3616,9 +3991,9 @@ $("#impJson").onchange=async e=>{ let lskAdd=0,lskKonf=[],add=0,dup=0,l2new=0,l2
   Object.entries(o.pts||{}).forEach(([b,arr])=>{ S.pts[b]=S.pts[b]||[]; arr.forEach(x=>{ const same=S.pts[b].find(y=>y.id===x.id||(y.ts===x.ts&&y.item===x.item&&y.who===x.who)); if(same){ dup++; if(new Date(x.ts)>=new Date(same.ts)&&JSON.stringify(x)!==JSON.stringify(same)&&(x.photos||[]).length>=(same.photos||[]).length) Object.assign(same,x); } else {S.pts[b].push(x); add++;} }); });
   Object.entries(o.dok||{}).forEach(([k,v])=>{ const cur=S.dok[k]; if(!cur||!cur.s){ S.dok[k]=v; if(v.s) dokNew++; } else if(v.s&&v.s!==cur.s) dokConf.push(k); });
   Object.entries(o.l2||{}).forEach(([b,d])=>{ S.l2[b]=S.l2[b]||{}; Object.entries(d).forEach(([c,v])=>{ const isi=x=>!!(x&&(x.a||x.s||x.v||x.k||(x.kat!=null&&x.kat!=="")||x.ada||x.ndt||x.uji)); const cur=S.l2[b][c]; if(!isi(cur)){ S.l2[b][c]=v; if(isi(v)) l2new++; } else { if(v.s&&cur.s&&v.s!==cur.s) l2conf.push(`${b} ${c}: ${cur.s} ≠ ${v.s}`); if(v.v&&cur.v&&v.v!==cur.v) l2conf.push(`${b} ${c}: hasil "${cur.v}" ≠ "${v.v}"`); ["v","s","kat","ada","ndt","uji","k"].forEach(f=>{ if((cur[f]==null||cur[f]==="")&&v[f]!=null&&v[f]!=="") cur[f]=v[f]; }); cur.p=(cur.p||[]).concat((v.p||[]).filter(p=>!(cur.p||[]).includes(p))); } }); });
-  Object.entries(o.umum||{}).forEach(([b,d])=>{S.umum[b]=Object.assign({},d,S.umum[b]||{}); S.umum[b].tim=[S.umum[b].tim,d.tim].filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).join(" + ");});
+  Object.entries(o.umum||{}).forEach(([b,d])=>{ const t0=(S.umum[b]||{}).tim; S.umum[b]=Object.assign({},d,S.umum[b]||{}); const bag=x=>String(x||"").split(/\s*\+\s*/).map(y=>y.trim()).filter(Boolean); S.umum[b].tim=[...bag(t0),...bag(d.tim)].filter((x,i,a)=>a.indexOf(x)===i).join(" + "); });
   if(o.lsk){ const r=lskGabung(o.lsk); lskAdd+=r.n; lskKonf.push(...r.konf); }
- }catch(err){alert("Gagal membaca "+f.name+": "+err.message);} } save(); e.target.value="";
+ }catch(err){alert("Gagal membaca "+f.name+": "+err.message);} } if(typeof hmIsiSemua==="function") hmIsiSemua(); save(); e.target.value="";
  let msg=`Impor selesai (${files.join(", ")}):\n• ${add} titik ditambahkan, ${dup} sudah ada (dilewati/diperbarui)\n• ${l2new} penilaian butir Lampiran 2 baru, ${dokNew} status dokumen baru`; if(l2conf.length) msg+=`\n\n⚠ ${l2conf.length} butir dinilai BERBEDA oleh perangkat lain (nilai di perangkat ini dipertahankan, cek manual):\n`+l2conf.slice(0,15).join("\n")+(l2conf.length>15?"\n…":""); if(dokConf.length) msg+=`\n⚠ ${dokConf.length} status dokumen berbeda (dipertahankan yang ada).`; if(lskAdd||lskKonf.length) msg+=`\n• Landscape & RTH: ${lskAdd} data baru (zona/penilaian/vegetasi/temuan)`+(lskKonf.length?`\n⚠ ${lskKonf.length} penilaian landscape berbeda (dipertahankan yang ada): `+lskKonf.slice(0,8).join("; "):""); alert(msg); renderMarks(); renderPtList(); renderL2(); renderRekap(); lskRender(); };
 $("#btnReset").onclick=async()=>{ if(confirm("Hapus SEMUA data di perangkat ini? Pastikan sudah ekspor JSON.")&&confirm("Yakin?")){ clearTimeout(saveT); saveT=null; DB_READY=false; await hapusSemua(); location.reload(); } };
 
